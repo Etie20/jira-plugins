@@ -1,0 +1,31 @@
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+    <plugin-info>
+        <description>${project.description}</description>
+        <version>${project.version}</version>
+        <vendor name="${project.organization.name}" url="${project.organization.url}" />
+        <param name="plugin-icon">images/pluginIcon.png</param>
+        <param name="plugin-logo">images/pluginLogo.png</param>
+    </plugin-info>
+
+    <!-- add our i18n resource -->
+    <resource type="i18n" name="i18n" location="poc-migration"/>
+    
+    <!-- add our web resources -->
+    <web-resource key="poc-migration-resources" name="poc-migration Web Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        
+        <resource type="download" name="poc-migration.css" location="/css/poc-migration.css"/>
+        <resource type="download" name="poc-migration.js" location="/js/poc-migration.js"/>
+        <resource type="download" name="images/" location="/images"/>
+
+        <context>atl.general</context>
+    </web-resource>
+    
+    <!-- Bouton Hello World pour le PoC de la banque -->
+    <web-item key="poc-migration-hello-world" name="Bouton PoC Banque" section="system.top.navigation.bar" weight="100">
+        <label>Hello World Banque</label>
+        <link linkId="poc-migration-hello-link">#</link>
+        <styleClass>poc-migration-trigger</styleClass>
+    </web-item>
+
+</atlassian-plugin>

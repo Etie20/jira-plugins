@@ -1,0 +1,22 @@
+/* Plugin PoC Migration - Styles du popup */
+
+/* Petit style sur le bouton de la nav pour le rendre visible */
+#poc-migration-hello-link {
+    font-weight: 600;
+    color: #0052CC !important;
+}
+
+#poc-migration-hello-link:hover {
+    color: #0747A6 !important;
+    text-decoration: underline;
+}
+
+/* Style de la liste dans le popup */
+#poc-migration-dialog .aui-dialog2-content ul {
+    margin: 10px 0 10px 20px;
+    list-style: disc;
+}
+
+#poc-migration-dialog .aui-dialog2-content ul li {
+    margin-bottom: 5px;
+}

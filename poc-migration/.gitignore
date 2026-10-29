@@ -1,0 +1,30 @@
+# Dossier de build Maven - très volumineux (contient le serveur Jira local)
+target/
+
+# Fichiers de configuration IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+*.eclipse
+
+# VS Code
+.vscode/
+
+# Fichiers systeme Windows
+Thumbs.db
+Desktop.ini
+
+# Fichiers systeme Mac
+.DS_Store
+
+# Logs
+*.log
+
+# Fichiers de credentials - NE JAMAIS COMMITTER
+*.key
+*.pem
+credentials.properties

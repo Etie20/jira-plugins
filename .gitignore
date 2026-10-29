@@ -1,0 +1,25 @@
+# Build artifacts
+**/target/
+target/
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.vscode/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs & temp
+*.log
+scratch/
+chrome-profile/
+
+# Exclude large local screenshots if desired, or keep them if needed

@@ -1,0 +1,34 @@
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+    <plugin-info>
+        <description>${project.description}</description>
+        <version>${project.version}</version>
+        <vendor name="${project.organization.name}" url="${project.organization.url}" />
+        <param name="atlassian-data-center-status">compatible</param>
+        <param name="atlassian-data-center-compatible">true</param>
+    </plugin-info>
+
+    <!-- Ressources Web (JS, CSS, AUI Dialog2) chargées sur la vue des tickets -->
+    <web-resource key="clarification-resources-v3" name="Ressources Web Clarification">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <dependency>com.atlassian.auiplugin:aui-flag</dependency>
+        <dependency>com.atlassian.auiplugin:dialog2</dependency>
+        
+        <resource type="download" name="clarification.css" location="/css/clarification.css"/>
+        <resource type="download" name="clarification.js" location="/js/clarification.js"/>
+
+        <context>jira.view.issue</context>
+    </web-resource>
+
+    <!-- Panneau latéral transverse disponible sur TOUS les projets et workflows -->
+    <web-panel key="clarification-panel" name="Panneau Informations Complementaires" location="atl.jira.view.issue.right.context" weight="140">
+        <description>Permet de demander des précisions et d'enregistrer les allers-retours de validation</description>
+        <resource name="view" type="velocity" location="templates/clarification-panel.vm"/>
+    </web-panel>
+
+    <!-- API REST transverse : /rest/clarification/1.0/issue/{issueKey} -->
+    <rest key="clarification-rest" path="/clarification" version="1.0">
+        <description>API REST pour les demandes d'informations complémentaires et réponses</description>
+        <package>com.mabanque.jira.plugins.clarification.rest</package>
+    </rest>
+
+</atlassian-plugin>

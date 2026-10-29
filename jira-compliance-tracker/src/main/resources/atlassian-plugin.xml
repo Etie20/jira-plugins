@@ -1,0 +1,33 @@
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+    <plugin-info>
+        <description>${project.description}</description>
+        <version>${project.version}</version>
+        <vendor name="${project.organization.name}" url="${project.organization.url}" />
+        <param name="atlassian-data-center-status">compatible</param>
+        <param name="atlassian-data-center-compatible">true</param>
+    </plugin-info>
+
+    <!-- Ressources Web (JS, CSS, AUI) chargées sur la vue des tickets -->
+    <web-resource key="compliance-resources" name="Ressources Web Conformite">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <dependency>com.atlassian.auiplugin:aui-flag</dependency>
+        
+        <resource type="download" name="compliance.css" location="/css/compliance.css"/>
+        <resource type="download" name="compliance.js" location="/js/compliance.js"/>
+
+        <context>jira.view.issue</context>
+    </web-resource>
+
+    <!-- Panneau latéral sur la vue d'un ticket (colonne de droite) -->
+    <web-panel key="compliance-issue-panel" name="Panneau Visa de Conformite" location="atl.jira.view.issue.right.context" weight="150">
+        <description>Affiche le statut d'audit et les boutons de visa sur le ticket</description>
+        <resource name="view" type="velocity" location="templates/compliance-panel.vm"/>
+    </web-panel>
+
+    <!-- API REST : exposée sur /rest/compliance/1.0/issue/{issueKey} -->
+    <rest key="compliance-rest" path="/compliance" version="1.0">
+        <description>API REST de gestion des visas de conformite et d'audit</description>
+        <package>com.mabanque.jira.plugins.compliance.rest</package>
+    </rest>
+
+</atlassian-plugin>

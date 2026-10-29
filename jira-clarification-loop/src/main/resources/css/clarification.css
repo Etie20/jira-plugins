@@ -1,0 +1,174 @@
+/* Module "Demandes de précision" - DPI */
+
+.clr-hidden {
+    display: none !important;
+}
+
+#clr-panel .clr-body {
+    padding-top: 4px;
+}
+
+#clr-count {
+    margin-left: 4px;
+}
+
+.clr-muted {
+    color: #6B6B6B;
+    font-size: 12px;
+    margin: 0;
+}
+
+/* Demande en cours */
+.clr-pending {
+    border-left: 3px solid #B5121B;
+    background: #FBF5F5;
+    border-radius: 3px;
+    padding: 8px 10px;
+}
+
+.clr-pending-title {
+    margin-bottom: 4px;
+}
+
+.clr-meta {
+    color: #4A4A4A;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.clr-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: #1A1A1A;
+    margin-bottom: 4px;
+}
+
+.clr-attachment {
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.clr-actions {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.clr-confirm {
+    font-size: 12px;
+    color: #1A1A1A;
+}
+
+/* Historique */
+.clr-history-toggle {
+    padding-left: 0 !important;
+    margin-top: 8px;
+}
+
+.clr-item {
+    border-top: 1px solid #E5E5E5;
+    padding: 8px 0;
+}
+
+.clr-answer {
+    margin: 6px 0 0 12px;
+    padding-left: 8px;
+    border-left: 2px solid #1A1A1A;
+}
+
+/* Boutons principaux aux couleurs de la banque */
+#clr-panel .aui-button-primary,
+.clr-dialog .aui-button-primary {
+    background: #B5121B;
+    border-color: #B5121B;
+    color: #FFFFFF;
+}
+
+#clr-panel .aui-button-primary:hover,
+.clr-dialog .aui-button-primary:hover {
+    background: #8E0E15;
+    border-color: #8E0E15;
+}
+
+/* Formulaires */
+.clr-dialog .clr-field-error {
+    display: none;
+}
+
+.clr-dialog .clr-invalid input.text,
+.clr-dialog .clr-invalid textarea {
+    border-color: #B5121B;
+}
+
+.clr-hint {
+    color: #6B6B6B;
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.clr-quote {
+    border-left: 3px solid #B5121B;
+    background: #FBF5F5;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+}
+
+.clr-quote-author {
+    font-size: 12px;
+    color: #4A4A4A;
+    margin-bottom: 4px;
+}
+
+/* Recherche d'utilisateurs */
+.clr-picker {
+    position: relative;
+    max-width: 500px;
+}
+
+.clr-picker-results {
+    position: absolute;
+    z-index: 3000;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin: 2px 0 0;
+    padding: 4px 0;
+    list-style: none;
+    background: #FFFFFF;
+    border: 1px solid #D0D0D0;
+    border-radius: 3px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.clr-picker-results li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.clr-picker-results li img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
+.clr-picker-results li.clr-active {
+    background: #F3E5E6;
+}
+
+.clr-picker-results li.clr-empty {
+    color: #6B6B6B;
+    cursor: default;
+}
+
+.clr-username {
+    color: #6B6B6B;
+    font-size: 12px;
+}

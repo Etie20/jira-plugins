@@ -1,0 +1,89 @@
+<div id="clr-panel" class="module toggle-wrap" data-issue-key="$issue.key">
+    <div class="mod-header">
+        <ul class="ops"></ul>
+        <h4 class="toggle-title">Demandes de précision <span id="clr-count" class="aui-badge">0</span></h4>
+    </div>
+    <div class="mod-content clr-body">
+        <div id="clr-panel-error" class="aui-message aui-message-error clr-hidden"><p></p></div>
+        <div id="clr-status"><p class="clr-muted">Chargement...</p></div>
+        <div id="clr-history" class="clr-hidden">
+            <button type="button" id="clr-history-toggle" class="aui-button aui-button-link clr-history-toggle">
+                Historique (<span id="clr-history-count">0</span>)
+            </button>
+            <div id="clr-history-list" class="clr-hidden"></div>
+        </div>
+    </div>
+
+    <!-- Fenêtre : nouvelle demande -->
+    <section id="clr-request-dialog" class="aui-dialog2 aui-dialog2-medium aui-layer clr-dialog" role="dialog" aria-hidden="true">
+        <header class="aui-dialog2-header">
+            <h2 class="aui-dialog2-header-main">Demander une précision</h2>
+            <button type="button" class="aui-close-button clr-dialog-close" aria-label="Fermer"></button>
+        </header>
+        <div class="aui-dialog2-content">
+            <div class="aui-message aui-message-error clr-form-error clr-hidden"><p></p></div>
+            <form class="aui clr-form" novalidate="novalidate">
+                <div class="field-group">
+                    <label for="clr-recipient-search">Destinataire<span class="aui-icon icon-required">obligatoire</span></label>
+                    <div class="clr-picker">
+                        <input type="text" id="clr-recipient-search" class="text long-field" autocomplete="off" placeholder="Rechercher un utilisateur..." />
+                        <input type="hidden" id="clr-recipient-value" />
+                        <ul id="clr-recipient-results" class="clr-picker-results clr-hidden"></ul>
+                    </div>
+                    <div class="error clr-field-error" data-error-for="recipient"></div>
+                </div>
+                <div class="field-group">
+                    <label for="clr-request-comment">Commentaire<span class="aui-icon icon-required">obligatoire</span></label>
+                    <textarea id="clr-request-comment" class="textarea long-field" rows="4"></textarea>
+                    <div class="error clr-field-error" data-error-for="comment"></div>
+                </div>
+                <div class="field-group">
+                    <label for="clr-request-file">Pièce jointe</label>
+                    <input type="file" id="clr-request-file" class="upfile" />
+                    <div class="error clr-field-error" data-error-for="attachment"></div>
+                </div>
+                <p class="clr-hint">Le ticket sera assigné au destinataire, puis vous reviendra automatiquement après sa réponse.</p>
+            </form>
+        </div>
+        <footer class="aui-dialog2-footer">
+            <div class="aui-dialog2-footer-actions">
+                <button type="button" class="aui-button aui-button-primary clr-submit" data-kind="request">Envoyer</button>
+                <button type="button" class="aui-button aui-button-link clr-dialog-close">Annuler</button>
+            </div>
+        </footer>
+    </section>
+
+    <!-- Fenêtre : réponse -->
+    <section id="clr-reply-dialog" class="aui-dialog2 aui-dialog2-medium aui-layer clr-dialog" role="dialog" aria-hidden="true">
+        <header class="aui-dialog2-header">
+            <h2 class="aui-dialog2-header-main">Répondre</h2>
+            <button type="button" class="aui-close-button clr-dialog-close" aria-label="Fermer"></button>
+        </header>
+        <div class="aui-dialog2-content">
+            <div class="aui-message aui-message-error clr-form-error clr-hidden"><p></p></div>
+            <div class="clr-quote">
+                <div class="clr-quote-author" id="clr-reply-author"></div>
+                <div id="clr-reply-question"></div>
+            </div>
+            <form class="aui clr-form" novalidate="novalidate">
+                <div class="field-group">
+                    <label for="clr-reply-comment">Commentaire<span class="aui-icon icon-required">obligatoire</span></label>
+                    <textarea id="clr-reply-comment" class="textarea long-field" rows="4"></textarea>
+                    <div class="error clr-field-error" data-error-for="comment"></div>
+                </div>
+                <div class="field-group">
+                    <label for="clr-reply-file">Pièce jointe</label>
+                    <input type="file" id="clr-reply-file" class="upfile" />
+                    <div class="error clr-field-error" data-error-for="attachment"></div>
+                </div>
+                <p class="clr-hint" id="clr-reply-hint"></p>
+            </form>
+        </div>
+        <footer class="aui-dialog2-footer">
+            <div class="aui-dialog2-footer-actions">
+                <button type="button" class="aui-button aui-button-primary clr-submit" data-kind="reply">Envoyer</button>
+                <button type="button" class="aui-button aui-button-link clr-dialog-close">Annuler</button>
+            </div>
+        </footer>
+    </section>
+</div>
