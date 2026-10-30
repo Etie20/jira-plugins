@@ -82,35 +82,20 @@
         if (!$module.length) {
             $module = $("#demande-infos-sup, [id*='demande-infos-sup']").first();
         }
-        var $header = $module.find(".mod-header");
-        if (!$header.length) {
-            $header = $module;
-        }
+        var $header = $module.find(".mod-header").first();
+        if (!$header.length) { return; }
 
-        // Trouver le conteneur du titre textuel en privilégiant les balises de titre (h4, h3, h2...)
-        var $title = $header.find("h1, h2, h3, h4, h5, h6").first();
-        if (!$title.length) {
-            $title = $header.find(".toggle-title").not("button, svg").first();
-        }
-        if (!$title.length) {
-            $title = $header.find("button.toggle-title, .toggle-title").first();
-        }
-        if (!$title.length) {
-            $title = $header;
-        }
+        // Cibler le h4/h3... (titre textuel), jamais le <button> chevron (14x14 absolu)
+        var $heading = $header.children("h1, h2, h3, h4, h5, h6").first();
+        if (!$heading.length) { return; }
 
-        // Nettoyer d'anciens badges mal positionnés (ex: orphelins dans le bouton chevron)
-        $module.find("#clr-count").not($title.find("#clr-count")).remove();
+        // Supprimer tout badge orphelin ailleurs dans le module
+        $module.find("#clr-count").not($heading.find("#clr-count")).remove();
 
-        var $badge = $title.find("#clr-count");
+        var $badge = $heading.find("#clr-count");
         if (!$badge.length) {
-            $badge = $('<span id="clr-count" class="aui-badge" style="margin-left: 6px; vertical-align: middle; display: inline-block;">0</span>');
-            var $labelEl = $title.children("a, span").not("#clr-count").first();
-            if ($labelEl.length) {
-                $labelEl.after($badge);
-            } else {
-                $title.append($badge);
-            }
+            $badge = $('<span id="clr-count" class="aui-badge">0</span>');
+            $heading.append($badge);
         }
         $badge.text(count);
     }
