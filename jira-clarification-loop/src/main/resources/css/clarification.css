@@ -18,8 +18,36 @@
     padding-top: 4px;
 }
 
-#clr-count {
-    margin-left: 4px;
+/* Alignement horizontal strict du titre et du badge de comptage dans l'en-tête natif Jira */
+[id*='demande-infos-sup'] .mod-header {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+}
+
+[id*='demande-infos-sup'] .mod-header > h1,
+[id*='demande-infos-sup'] .mod-header > h2,
+[id*='demande-infos-sup'] .mod-header > h3,
+[id*='demande-infos-sup'] .mod-header > h4,
+[id*='demande-infos-sup'] .mod-header > h5,
+[id*='demande-infos-sup'] .mod-header > h6,
+[id*='demande-infos-sup'] .mod-header .toggle-title {
+    display: inline-flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    margin-bottom: 0 !important;
+    white-space: nowrap !important;
+}
+
+#clr-count,
+[id*='demande-infos-sup'] .mod-header #clr-count {
+    display: inline-block !important;
+    vertical-align: middle !important;
+    margin-left: 6px !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    flex-shrink: 0 !important;
+    line-height: normal !important;
 }
 
 .clr-muted {

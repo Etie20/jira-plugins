@@ -82,14 +82,37 @@
         if (!$module.length) {
             $module = $("#demande-infos-sup, [id*='demande-infos-sup']").first();
         }
-        var $titleBtn = $module.find("button.toggle-title, .toggle-title");
-        if ($titleBtn.length) {
-            var $badge = $titleBtn.find("#clr-count");
-            if (!$badge.length) {
-                $badge = $('<span id="clr-count" class="aui-badge" style="margin-left: 6px;">0</span>').appendTo($titleBtn);
-            }
-            $badge.text(count);
+        var $header = $module.find(".mod-header");
+        if (!$header.length) {
+            $header = $module;
         }
+
+        // Trouver le conteneur du titre textuel en privilégiant les balises de titre (h4, h3, h2...)
+        var $title = $header.find("h1, h2, h3, h4, h5, h6").first();
+        if (!$title.length) {
+            $title = $header.find(".toggle-title").not("button, svg").first();
+        }
+        if (!$title.length) {
+            $title = $header.find("button.toggle-title, .toggle-title").first();
+        }
+        if (!$title.length) {
+            $title = $header;
+        }
+
+        // Nettoyer d'anciens badges mal positionnés (ex: orphelins dans le bouton chevron)
+        $module.find("#clr-count").not($title.find("#clr-count")).remove();
+
+        var $badge = $title.find("#clr-count");
+        if (!$badge.length) {
+            $badge = $('<span id="clr-count" class="aui-badge" style="margin-left: 6px; vertical-align: middle; display: inline-block;">0</span>');
+            var $labelEl = $title.children("a, span").not("#clr-count").first();
+            if ($labelEl.length) {
+                $labelEl.after($badge);
+            } else {
+                $title.append($badge);
+            }
+        }
+        $badge.text(count);
     }
 
     function render() {
