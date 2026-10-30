@@ -7,8 +7,11 @@
         <param name="atlassian-data-center-compatible">true</param>
     </plugin-info>
 
+    <!-- Fichier de messages internationalisés (i18n) -->
+    <resource type="i18n" name="i18n" location="i18n/jira-clarification-loop"/>
+
     <!-- Ressources Web (JS, CSS, AUI Dialog2) chargées sur la vue des tickets -->
-    <web-resource key="clarification-resources-v6" name="Ressources Web Demande infos sup">
+    <web-resource key="clarification-resources-v7" name="Ressources Web Demande infos sup">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
         <dependency>com.atlassian.auiplugin:aui-flag</dependency>
         <dependency>com.atlassian.auiplugin:dialog2</dependency>
@@ -22,6 +25,7 @@
     <!-- Panneau latéral transverse placé en 2e position (weight=20, entre Personnes=10 et Dates=40) -->
     <web-panel key="demande-infos-sup" name="Demande infos sup" location="atl.jira.view.issue.right.context" weight="20">
         <description>Permet de demander des informations supplémentaires et d'enregistrer les allers-retours de validation</description>
+        <label key="demande.infos.sup.label">Demande infos sup</label>
         <resource name="view" type="velocity" location="templates/clarification-panel.vm"/>
     </web-panel>
 

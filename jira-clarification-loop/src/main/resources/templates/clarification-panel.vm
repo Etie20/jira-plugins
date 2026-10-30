@@ -1,18 +1,13 @@
-<div id="clr-panel" class="module toggle-wrap" data-issue-key="$issue.key">
-    <div class="mod-header">
-        <ul class="ops"></ul>
-        <h4 class="toggle-title">Demande infos sup <span id="clr-count" class="aui-badge">0</span></h4>
+<div id="clr-content" class="clr-body" data-issue-key="$issue.key">
+    <div id="clr-panel-error" class="aui-message aui-message-error clr-hidden"><p></p></div>
+    <div id="clr-status"><p class="clr-muted">Chargement...</p></div>
+    <div id="clr-history" class="clr-hidden">
+        <button type="button" id="clr-history-toggle" class="aui-button aui-button-link clr-history-toggle">
+            Historique (<span id="clr-history-count">0</span>)
+        </button>
+        <div id="clr-history-list" class="clr-hidden"></div>
     </div>
-    <div class="mod-content clr-body">
-        <div id="clr-panel-error" class="aui-message aui-message-error clr-hidden"><p></p></div>
-        <div id="clr-status"><p class="clr-muted">Chargement...</p></div>
-        <div id="clr-history" class="clr-hidden">
-            <button type="button" id="clr-history-toggle" class="aui-button aui-button-link clr-history-toggle">
-                Historique (<span id="clr-history-count">0</span>)
-            </button>
-            <div id="clr-history-list" class="clr-hidden"></div>
-        </div>
-    </div>
+</div>
 
     <!-- Fenêtre : nouvelle demande -->
     <section id="clr-request-dialog" class="aui-dialog2 aui-dialog2-medium aui-layer clr-dialog" role="dialog" aria-hidden="true">
@@ -105,4 +100,3 @@
             </div>
         </footer>
     </section>
-</div>

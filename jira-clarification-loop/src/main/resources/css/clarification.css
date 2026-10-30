@@ -14,7 +14,7 @@
     margin-left: 6px;
 }
 
-#clr-panel .clr-body {
+.clr-body {
     padding-top: 4px;
 }
 
@@ -89,29 +89,34 @@
 }
 
 /* Boutons principaux aux couleurs de la banque */
-#clr-panel .aui-button-primary,
+.clr-body .aui-button-primary,
+[id*='demande-infos-sup'] .aui-button-primary,
 .clr-dialog .aui-button-primary {
     background: #B5121B;
     border-color: #B5121B;
     color: #FFFFFF;
 }
 
-#clr-panel .aui-button-primary:hover,
+.clr-body .aui-button-primary:hover,
+[id*='demande-infos-sup'] .aui-button-primary:hover,
 .clr-dialog .aui-button-primary:hover {
     background: #8E0E15;
     border-color: #8E0E15;
 }
 
 /* Bouton "Annuler la demande" bien visible (bordure et texte rouge foncé sur fond blanc) */
-#clr-panel .clr-btn-cancel {
+.clr-body .clr-btn-cancel,
+[id*='demande-infos-sup'] .clr-btn-cancel {
     background: #FFFFFF;
     border: 1px solid #B5121B;
     color: #B5121B;
     font-weight: 600;
 }
 
-#clr-panel .clr-btn-cancel:hover,
-#clr-panel .clr-btn-cancel:focus {
+.clr-body .clr-btn-cancel:hover,
+.clr-body .clr-btn-cancel:focus,
+[id*='demande-infos-sup'] .clr-btn-cancel:hover,
+[id*='demande-infos-sup'] .clr-btn-cancel:focus {
     background: #F3E5E6;
     border-color: #8E0E15;
     color: #8E0E15;

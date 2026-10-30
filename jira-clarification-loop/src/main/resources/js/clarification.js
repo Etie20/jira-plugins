@@ -17,16 +17,16 @@
     // ------------------------------------------------------------------
 
     function init() {
-        var $panel = $("#clr-panel");
-        if (!$panel.length) {
+        var $content = $("#clr-content");
+        if (!$content.length) {
             return;
         }
         positionPanel();
-        if ($panel.data("clr-ready")) {
+        if ($content.data("clr-ready")) {
             return;
         }
-        $panel.data("clr-ready", true);
-        state.issueKey = $panel.data("issue-key");
+        $content.data("clr-ready", true);
+        state.issueKey = $content.data("issue-key") || (window.JIRA && JIRA.Issue && JIRA.Issue.getIssueKey && JIRA.Issue.getIssueKey()) || $("#key-val").text().trim();
 
         // AUI Dialog2 doit être attaché au body : on remplace les éventuelles anciennes copies
         moveDialogToBody("#clr-request-dialog");
@@ -38,16 +38,19 @@
 
     // Garantit que le panneau est toujours en 2e position (juste après "Personnes" et avant "Dates")
     function positionPanel() {
-        var $panel = $("#clr-panel");
+        var $module = $("#clr-content").closest(".module");
+        if (!$module.length) {
+            $module = $("#demande-infos-sup, [id*='demande-infos-sup']").first();
+        }
         var $people = $("#peoplemodule");
-        if ($panel.length && $people.length && $panel.prev()[0] !== $people[0]) {
-            $people.after($panel);
+        if ($module.length && $people.length && $module.prev()[0] !== $people[0]) {
+            $people.after($module);
         }
     }
 
     function moveDialogToBody(selector) {
-        var $fresh = $("#clr-panel").find(selector);
-        if ($fresh.length) {
+        var $fresh = $(selector);
+        if ($fresh.length && $fresh.parent()[0] !== document.body) {
             $("body").children(selector).remove();
             $fresh.appendTo("body");
         }
@@ -74,13 +77,28 @@
     // Rendu du panneau
     // ------------------------------------------------------------------
 
+    function updateBadge(count) {
+        var $module = $("#clr-content").closest(".module");
+        if (!$module.length) {
+            $module = $("#demande-infos-sup, [id*='demande-infos-sup']").first();
+        }
+        var $titleBtn = $module.find("button.toggle-title, .toggle-title");
+        if ($titleBtn.length) {
+            var $badge = $titleBtn.find("#clr-count");
+            if (!$badge.length) {
+                $badge = $('<span id="clr-count" class="aui-badge" style="margin-left: 6px;">0</span>').appendTo($titleBtn);
+            }
+            $badge.text(count);
+        }
+    }
+
     function render() {
         positionPanel();
         var entries = (state.data && state.data.entries) || [];
         var perms = (state.data && state.data.permissions) || {};
         var pending = findPending(entries);
 
-        $("#clr-count").text(entries.length);
+        updateBadge(entries.length);
         $("#clr-status").html(pending ? renderPending(pending, perms) : renderIdle(perms));
         toggleWorkflowTransitions(!!pending, pending);
 
