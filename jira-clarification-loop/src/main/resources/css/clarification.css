@@ -1,7 +1,17 @@
-/* Module "Demandes de précision" - DPI */
+/* Module "Demandes d'informations supplémentaires" - DPI (Data Process et Innovation) */
 
 .clr-hidden {
     display: none !important;
+}
+
+/* Verrouillage visuel des transitions du workflow lorsqu'une demande d'infos sup est en attente */
+.clr-transition-locked {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+}
+
+.clr-lock-badge {
+    margin-left: 6px;
 }
 
 #clr-panel .clr-body {

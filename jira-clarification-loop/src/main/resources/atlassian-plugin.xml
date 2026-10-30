@@ -8,7 +8,7 @@
     </plugin-info>
 
     <!-- Ressources Web (JS, CSS, AUI Dialog2) chargées sur la vue des tickets -->
-    <web-resource key="clarification-resources-v4" name="Ressources Web Demandes d'infos sup">
+    <web-resource key="clarification-resources-v5" name="Ressources Web Demandes d'infos sup">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
         <dependency>com.atlassian.auiplugin:aui-flag</dependency>
         <dependency>com.atlassian.auiplugin:dialog2</dependency>

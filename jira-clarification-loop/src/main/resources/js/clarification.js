@@ -69,11 +69,22 @@
 
         $("#clr-count").text(entries.length);
         $("#clr-status").html(pending ? renderPending(pending, perms) : renderIdle(perms));
+        toggleWorkflowTransitions(!!pending, pending);
 
         var closed = entries.filter(function (e) { return e.status !== "PENDING"; }).reverse();
         $("#clr-history-count").text(closed.length);
         $("#clr-history").toggleClass("clr-hidden", closed.length === 0);
         $("#clr-history-list").html(closed.map(renderHistoryItem).join(""));
+    }
+
+    function toggleWorkflowTransitions(locked, pending) {
+        var $btns = $("#opsbar-opsbar-transitions a, a.issueaction-workflow-transition, #opsbar-transitions_more");
+        if (locked) {
+            var reason = "Transition bloquée : une demande d'infos sup est en attente de la réponse de " + ((pending && pending.recipient) || "son destinataire") + ".";
+            $btns.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
+        } else {
+            $btns.removeClass("clr-transition-locked").removeAttr("aria-disabled");
+        }
     }
 
     function renderIdle(perms) {
@@ -86,7 +97,8 @@
     function renderPending(p, perms) {
         var html =
             '<div class="clr-pending">' +
-            '  <div class="clr-pending-title"><span class="aui-lozenge aui-lozenge-current">En attente</span></div>' +
+            '  <div class="clr-pending-title"><span class="aui-lozenge aui-lozenge-current">En attente</span>' +
+            '  <span class="aui-lozenge aui-lozenge-moved clr-lock-badge" title="Les transitions du workflow sont bloquées tant que la demande est en attente">Transitions bloquées</span></div>' +
             '  <div class="clr-meta"><strong>' + esc(p.requestedBy) + "</strong> → <strong>" + esc(p.recipient) + "</strong> · " + esc(p.requestedAt) + "</div>" +
             '  <div class="clr-text">' + esc(p.question) + "</div>" +
                  attachmentHtml(p.requestAttachmentId, p.requestAttachmentName) +
@@ -510,6 +522,23 @@
         .on("blur.clr", "#clr-recipient-search", function () {
             setTimeout(function () { $("#clr-recipient-results").addClass("clr-hidden"); }, 150);
         });
+
+    // Verrouillage des transitions du workflow tant qu'une demande d'infos sup est en attente
+    document.addEventListener("click", function (e) {
+        var pending = state.data && findPending(state.data.entries || []);
+        if (!pending) {
+            return;
+        }
+        var $target = $(e.target).closest("#opsbar-opsbar-transitions a, a.issueaction-workflow-transition, #opsbar-transitions_more");
+        if ($target.length) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === "function") {
+                e.stopImmediatePropagation();
+            }
+            showPanelError("Transitions bloquées : une demande d'infos sup est en attente de la réponse de " + (pending.recipient || "son destinataire") + ".");
+        }
+    }, true);
 
     $(init);
 
