@@ -11,7 +11,7 @@
     <resource type="i18n" name="i18n" location="i18n/jira-clarification-loop"/>
 
     <!-- Ressources Web (JS, CSS, AUI Dialog2) chargées sur la vue des tickets -->
-    <web-resource key="clarification-resources-v9" name="Ressources Web Demande infos sup">
+    <web-resource key="clarification-resources-v10" name="Ressources Web Demande infos sup">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
         <dependency>com.atlassian.auiplugin:aui-flag</dependency>
         <dependency>com.atlassian.auiplugin:dialog2</dependency>

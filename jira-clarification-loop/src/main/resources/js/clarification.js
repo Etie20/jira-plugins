@@ -83,21 +83,41 @@
             $module = $("#demande-infos-sup, [id*='demande-infos-sup']").first();
         }
         var $header = $module.find(".mod-header").first();
-        if (!$header.length) { return; }
-
-        // Cibler le h4/h3... (titre textuel), jamais le <button> chevron (14x14 absolu)
-        var $heading = $header.children("h1, h2, h3, h4, h5, h6").first();
-        if (!$heading.length) { return; }
-
-        // Supprimer tout badge orphelin ailleurs dans le module
-        $module.find("#clr-count").not($heading.find("#clr-count")).remove();
-
-        var $badge = $heading.find("#clr-count");
-        if (!$badge.length) {
-            $badge = $('<span id="clr-count" class="aui-badge">0</span>');
-            $heading.append($badge);
+        if (!$header.length) {
+            $header = $module;
         }
-        $badge.text(count);
+
+        // 1. Chercher le libellé textuel "Demande infos sup"
+        var $labelEl = $header.find("span").filter(function () {
+            return $(this).text().indexOf("Demande infos sup") !== -1 && !$(this).is("#clr-count");
+        }).first();
+
+        var $targetContainer = null;
+        var insertAfterLabel = false;
+
+        if ($labelEl.length) {
+            $targetContainer = $labelEl.parent();
+            insertAfterLabel = true;
+        } else {
+            var $heading = $header.find("h1, h2, h3, h4, h5, h6").first();
+            if ($heading.length) {
+                $targetContainer = $heading;
+            } else {
+                var $btn = $header.find("button.toggle-title, .toggle-title").first();
+                $targetContainer = $btn.length ? $btn : $header;
+            }
+        }
+
+        // 2. Nettoyer tout badge existant ou orphelin dans le module
+        $module.find("#clr-count").remove();
+
+        // 3. Créer et injecter le badge strictement à droite du texte
+        var $badge = $('<span id="clr-count" class="aui-badge clr-header-badge">' + count + '</span>');
+        if (insertAfterLabel && $labelEl.length) {
+            $labelEl.after($badge);
+        } else {
+            $targetContainer.append($badge);
+        }
     }
 
     function render() {
