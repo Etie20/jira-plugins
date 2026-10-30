@@ -18,18 +18,37 @@
     padding-top: 4px;
 }
 
-/* Alignement du titre et du badge dans l'en-tête natif Jira */
-#demande-infos-sup .mod-header .toggle-title,
-[id*='demande-infos-sup'] .mod-header .toggle-title,
+/* Alignement horizontal strict du titre et du badge dans l'en-tête natif Jira */
+#demande-infos-sup .mod-header,
+[id*='demande-infos-sup'] .mod-header {
+    white-space: nowrap !important;
+}
+
+#demande-infos-sup .mod-header h1,
+#demande-infos-sup .mod-header h2,
+#demande-infos-sup .mod-header h3,
 #demande-infos-sup .mod-header h4,
-[id*='demande-infos-sup'] .mod-header h4 {
+#demande-infos-sup .mod-header h5,
+#demande-infos-sup .mod-header h6,
+#demande-infos-sup .mod-header .toggle-title,
+[id*='demande-infos-sup'] .mod-header h1,
+[id*='demande-infos-sup'] .mod-header h2,
+[id*='demande-infos-sup'] .mod-header h3,
+[id*='demande-infos-sup'] .mod-header h4,
+[id*='demande-infos-sup'] .mod-header h5,
+[id*='demande-infos-sup'] .mod-header h6,
+[id*='demande-infos-sup'] .mod-header .toggle-title {
     display: inline-flex !important;
     align-items: center !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     white-space: nowrap !important;
     position: relative !important;
     width: auto !important;
     height: auto !important;
     margin-bottom: 0 !important;
+    margin-top: 0 !important;
+    float: none !important;
 }
 
 #demande-infos-sup .mod-header .toggle-title > svg,
@@ -39,18 +58,23 @@
 }
 
 #clr-count.clr-header-badge,
-#clr-count {
+#clr-count,
+#demande-infos-sup #clr-count,
+[id*='demande-infos-sup'] #clr-count {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     vertical-align: middle !important;
     margin-left: 8px !important;
+    margin-right: 0 !important;
     margin-top: 0 !important;
     margin-bottom: 0 !important;
     position: static !important;
     top: auto !important;
     left: auto !important;
+    float: none !important;
     flex-shrink: 0 !important;
+    white-space: nowrap !important;
 }
 
 .clr-muted {

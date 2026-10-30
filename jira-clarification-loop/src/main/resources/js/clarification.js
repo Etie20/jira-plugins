@@ -87,36 +87,36 @@
             $header = $module;
         }
 
-        // 1. Chercher le libellé textuel "Demande infos sup"
-        var $labelEl = $header.find("span").filter(function () {
-            return $(this).text().indexOf("Demande infos sup") !== -1 && !$(this).is("#clr-count");
-        }).first();
-
-        var $targetContainer = null;
-        var insertAfterLabel = false;
-
-        if ($labelEl.length) {
-            $targetContainer = $labelEl.parent();
-            insertAfterLabel = true;
-        } else {
-            var $heading = $header.find("h1, h2, h3, h4, h5, h6").first();
-            if ($heading.length) {
-                $targetContainer = $heading;
-            } else {
-                var $btn = $header.find("button.toggle-title, .toggle-title").first();
-                $targetContainer = $btn.length ? $btn : $header;
-            }
+        // Trouver le conteneur du titre (heading h1-h6 ou .toggle-title)
+        var $titleEl = $header.find("h1, h2, h3, h4, h5, h6, .toggle-title").first();
+        if (!$titleEl.length) {
+            $titleEl = $header;
         }
 
-        // 2. Nettoyer tout badge existant ou orphelin dans le module
+        // Forcer le conteneur du titre en ligne sans retour possible à la ligne
+        $titleEl.css({
+            "display": "inline-flex",
+            "align-items": "center",
+            "white-space": "nowrap",
+            "flex-direction": "row",
+            "flex-wrap": "nowrap"
+        });
+
+        // Supprimer tout badge existant ou orphelin dans le module
         $module.find("#clr-count").remove();
 
-        // 3. Créer et injecter le badge strictement à droite du texte
-        var $badge = $('<span id="clr-count" class="aui-badge clr-header-badge">' + count + '</span>');
-        if (insertAfterLabel && $labelEl.length) {
-            $labelEl.after($badge);
+        // Créer le badge avec styles stricts en ligne (garantit le positionnement horizontal à droite du texte)
+        var $badge = $('<span id="clr-count" class="aui-badge clr-header-badge" style="margin-left: 8px !important; margin-right: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; vertical-align: middle !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; position: static !important; float: none !important; white-space: nowrap !important; flex-shrink: 0 !important;">' + count + '</span>');
+
+        // Si le titre a un <span> enfant contenant le libellé, on insère le badge juste après
+        var $span = $titleEl.find("span").filter(function () {
+            return $(this).text().indexOf("Demande infos sup") !== -1;
+        }).first();
+
+        if ($span.length) {
+            $span.after($badge);
         } else {
-            $targetContainer.append($badge);
+            $titleEl.append($badge);
         }
     }
 
