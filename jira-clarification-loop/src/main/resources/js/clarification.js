@@ -7,7 +7,6 @@
     var state = {
         issueKey: null,
         data: null,
-        confirmCancel: false,
         uploads: {},          // fichier déjà téléversé par formulaire (évite les doublons en cas de nouvel essai)
         searchTimer: null,
         searchXhr: null
@@ -19,18 +18,31 @@
 
     function init() {
         var $panel = $("#clr-panel");
-        if (!$panel.length || $panel.data("clr-ready")) {
+        if (!$panel.length) {
+            return;
+        }
+        positionPanel();
+        if ($panel.data("clr-ready")) {
             return;
         }
         $panel.data("clr-ready", true);
         state.issueKey = $panel.data("issue-key");
-        state.confirmCancel = false;
 
         // AUI Dialog2 doit être attaché au body : on remplace les éventuelles anciennes copies
         moveDialogToBody("#clr-request-dialog");
         moveDialogToBody("#clr-reply-dialog");
+        moveDialogToBody("#clr-cancel-dialog");
 
         load();
+    }
+
+    // Garantit que le panneau est toujours en 2e position (juste après "Personnes" et avant "Dates")
+    function positionPanel() {
+        var $panel = $("#clr-panel");
+        var $people = $("#peoplemodule");
+        if ($panel.length && $people.length && $panel.prev()[0] !== $people[0]) {
+            $people.after($panel);
+        }
     }
 
     function moveDialogToBody(selector) {
@@ -63,6 +75,7 @@
     // ------------------------------------------------------------------
 
     function render() {
+        positionPanel();
         var entries = (state.data && state.data.entries) || [];
         var perms = (state.data && state.data.permissions) || {};
         var pending = findPending(entries);
@@ -89,7 +102,7 @@
 
     function renderIdle(perms) {
         if (perms.canRequest) {
-            return '<button type="button" id="clr-open-request" class="aui-button">Demande d\'infos sup</button>';
+            return '<button type="button" id="clr-open-request" class="aui-button">Demande infos sup</button>';
         }
         return '<p class="clr-muted">' + esc(perms.info || "Aucune demande en cours.") + "</p>";
     }
@@ -108,13 +121,7 @@
             html += '<button type="button" id="clr-open-reply" class="aui-button aui-button-primary">Répondre</button>';
         }
         if (perms.canCancel) {
-            if (state.confirmCancel) {
-                html += '<span class="clr-confirm">Annuler cette demande ? ' +
-                        '<button type="button" id="clr-cancel-yes" class="aui-button aui-button-link">Oui</button>' +
-                        '<button type="button" id="clr-cancel-no" class="aui-button aui-button-link">Non</button></span>';
-            } else {
-                html += '<button type="button" id="clr-cancel" class="aui-button aui-button-link">Annuler la demande</button>';
-            }
+            html += '<button type="button" id="clr-open-cancel" class="aui-button clr-btn-cancel">Annuler la demande</button>';
         }
         if (!perms.canReply && !perms.canCancel) {
             html += '<span class="clr-muted">En attente de la réponse de ' + esc(p.recipient) + ".</span>";
@@ -196,6 +203,14 @@
         $("#clr-reply-comment").trigger("focus");
     }
 
+    function openCancelDialog() {
+        var $d = $("#clr-cancel-dialog");
+        clearErrors($d);
+        $d.data("busy", false);
+        $("#clr-confirm-cancel").prop("disabled", false).text("Confirmer l'annulation");
+        AJS.dialog2($d).show();
+    }
+
     function resetForm($d, kind) {
         clearErrors($d);
         $d.find("textarea, input[type=text], input[type=hidden], input[type=file]").val("");
@@ -266,9 +281,10 @@
         return $.ajax({
             url: api("/" + kind),
             type: "POST",
-            data: JSON.stringify(payload),
+            data: JSON.stringify(payload || {}),
             contentType: "application/json; charset=UTF-8",
-            dataType: "json"
+            dataType: "json",
+            headers: { "X-Atlassian-Token": "no-check" }
         });
     }
 
@@ -310,17 +326,27 @@
     }
 
     function cancelRequest() {
-        $.ajax({ url: api("/cancel"), type: "POST", dataType: "json" })
+        var $d = $("#clr-cancel-dialog");
+        if ($d.data("busy")) {
+            return;
+        }
+        clearErrors($d);
+        $d.data("busy", true);
+        $("#clr-confirm-cancel").prop("disabled", true).text("Annulation...");
+
+        post("cancel", {})
             .done(function () {
-                state.confirmCancel = false;
+                AJS.dialog2($d).hide();
                 flag("Demande annulée.");
                 refreshIssue();
             })
             .fail(function (xhr) {
-                state.confirmCancel = false;
-                render();
                 var r = parseError(xhr);
-                showPanelError(r.error);
+                showError($d, null, r.error);
+            })
+            .always(function () {
+                $d.data("busy", false);
+                $("#clr-confirm-cancel").prop("disabled", false).text("Confirmer l'annulation");
             });
     }
 
@@ -395,14 +421,14 @@
     // ------------------------------------------------------------------
 
     function parseError(err) {
-        if (err && err.error) {
+        if (err && typeof err.error === "string") {
             return err;                                  // erreur déjà formatée (pièce jointe)
         }
         var json = err && err.responseJSON;
         if (!json && err && err.responseText) {
             try { json = JSON.parse(err.responseText); } catch (ignored) { json = null; }
         }
-        if (json && json.error) {
+        if (json && typeof json.error === "string") {
             return { field: json.field, error: json.error };
         }
         if (err && err.status === 401) {
@@ -417,12 +443,13 @@
     }
 
     function showError($d, field, message) {
+        var text = (typeof message === "string" && message) ? message : "Une erreur est survenue. Réessayez.";
         var $fieldError = field ? $d.find('[data-error-for="' + field + '"]') : $();
         if ($fieldError.length) {
-            $fieldError.text(message).show();
+            $fieldError.text(text).show();
             $fieldError.closest(".field-group").addClass("clr-invalid");
         } else {
-            $d.find(".clr-form-error").removeClass("clr-hidden").find("p").text(message);
+            $d.find(".clr-form-error").removeClass("clr-hidden").find("p").text(text);
         }
     }
 
@@ -439,7 +466,8 @@
     }
 
     function showPanelError(message) {
-        $("#clr-panel-error").removeClass("clr-hidden").find("p").text(message);
+        var text = (typeof message === "string" && message) ? message : "Une erreur est survenue. Réessayez.";
+        $("#clr-panel-error").removeClass("clr-hidden").find("p").text(text);
     }
 
     function hidePanelError() {
@@ -472,9 +500,8 @@
     $(document)
         .on("click.clr", "#clr-open-request", function (e) { e.preventDefault(); openRequestDialog(); })
         .on("click.clr", "#clr-open-reply", function (e) { e.preventDefault(); openReplyDialog(); })
-        .on("click.clr", "#clr-cancel", function () { state.confirmCancel = true; render(); })
-        .on("click.clr", "#clr-cancel-no", function () { state.confirmCancel = false; render(); })
-        .on("click.clr", "#clr-cancel-yes", function () { cancelRequest(); })
+        .on("click.clr", "#clr-open-cancel", function (e) { e.preventDefault(); openCancelDialog(); })
+        .on("click.clr", "#clr-confirm-cancel", function (e) { e.preventDefault(); cancelRequest(); })
         .on("click.clr", "#clr-history-toggle", function () { $("#clr-history-list").toggleClass("clr-hidden"); })
         .on("click.clr", ".clr-dialog .clr-dialog-close", function () { AJS.dialog2($(this).closest(".clr-dialog")).hide(); })
         .on("click.clr", ".clr-dialog .clr-submit", function () { submit($(this).data("kind")); })

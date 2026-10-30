@@ -106,8 +106,9 @@ public class ClarificationRestResource {
 
     @POST
     @Path("/{issueKey}/cancel")
+    @Consumes("application/json")
     @Produces(JSON_UTF8)
-    public Response cancelClarification(@PathParam("issueKey") String issueKey) {
+    public Response cancelClarification(@PathParam("issueKey") String issueKey, String body) {
         try {
             ClarificationEntry entry = clarificationService.cancelClarification(issueKey,
                     authenticationContext.getLoggedInUser());

@@ -1,4 +1,4 @@
-/* Module "Demandes d'informations supplémentaires" - DPI (Data Process et Innovation) */
+/* Module "Demande infos sup" - DPI (Data Process et Innovation) */
 
 .clr-hidden {
     display: none !important;
@@ -100,6 +100,27 @@
 .clr-dialog .aui-button-primary:hover {
     background: #8E0E15;
     border-color: #8E0E15;
+}
+
+/* Bouton "Annuler la demande" bien visible (bordure et texte rouge foncé sur fond blanc) */
+#clr-panel .clr-btn-cancel {
+    background: #FFFFFF;
+    border: 1px solid #B5121B;
+    color: #B5121B;
+    font-weight: 600;
+}
+
+#clr-panel .clr-btn-cancel:hover,
+#clr-panel .clr-btn-cancel:focus {
+    background: #F3E5E6;
+    border-color: #8E0E15;
+    color: #8E0E15;
+}
+
+.clr-cancel-prompt {
+    color: #1A1A1A;
+    font-weight: 600;
+    margin: 0 0 6px 0;
 }
 
 /* Formulaires */

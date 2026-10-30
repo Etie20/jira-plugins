@@ -1,4 +1,4 @@
-﻿# Documentation Technique et Fonctionnelle : Plugin `jira-clarification-loop`
+# Documentation Technique et Fonctionnelle : Plugin `jira-clarification-loop`
 
 **Auteur :** Etienne FOYANG - Data Process et Innovation (DPI)  
 **Cible :** Jira Data Center 10.3.5 (Java 17 / Atlassian Plugin SDK 9.11.2)  
@@ -121,10 +121,10 @@ Le projet a été généré via `atlas-create-jira-plugin` puis configuré dans 
 
 Le fichier `src/main/resources/atlassian-plugin.xml` déclare trois modules :
 
-1. **`<web-resource key="clarification-resources-v3">` :**
-   Charge `clarification.js` et `clarification.css` sur le contexte `jira.view.issue` (vue d'un ticket), avec les dépendances AUI (`com.atlassian.auiplugin:ajs`, `com.atlassian.auiplugin:aui-dialog2`, `com.atlassian.auiplugin:aui-lozenge`).
-2. **`<web-panel key="panneau-demande-infos-sup" location="atl.jira.view.issue.right.context">` :**
-   Affiche le panneau **Demandes d'informations supplémentaires** dans la colonne latérale droite de chaque ticket à partir du template Velocity `templates/clarification-panel.vm`.
+1. **`<web-resource key="clarification-resources-v6">` :**
+   Charge `clarification.js` et `clarification.css` sur le contexte `jira.view.issue` (vue d'un ticket), avec les dépendances AUI (`com.atlassian.auiplugin:ajs`, `com.atlassian.auiplugin:aui-flag`, `com.atlassian.auiplugin:dialog2`).
+2. **`<web-panel key="demande-infos-sup" name="Demande infos sup" location="atl.jira.view.issue.right.context" weight="20">` :**
+   Affiche le panneau **Demande infos sup** en **2e position** de la colonne latérale droite de chaque ticket (entre le panneau *Personnes* de poids `10` et le panneau *Dates* de poids `40`) à partir du template Velocity `templates/clarification-panel.vm`.
 3. **`<rest key="clarification-rest" path="/clarification" version="1.0">` :**
    Expose les services REST du plugin sous `/rest/clarification/1.0/...`.
 

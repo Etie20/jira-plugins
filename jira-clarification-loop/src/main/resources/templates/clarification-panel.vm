@@ -1,7 +1,7 @@
 <div id="clr-panel" class="module toggle-wrap" data-issue-key="$issue.key">
     <div class="mod-header">
         <ul class="ops"></ul>
-        <h4 class="toggle-title">Demandes d'informations supplémentaires <span id="clr-count" class="aui-badge">0</span></h4>
+        <h4 class="toggle-title">Demande infos sup <span id="clr-count" class="aui-badge">0</span></h4>
     </div>
     <div class="mod-content clr-body">
         <div id="clr-panel-error" class="aui-message aui-message-error clr-hidden"><p></p></div>
@@ -17,7 +17,7 @@
     <!-- Fenêtre : nouvelle demande -->
     <section id="clr-request-dialog" class="aui-dialog2 aui-dialog2-medium aui-layer clr-dialog" role="dialog" aria-hidden="true">
         <header class="aui-dialog2-header">
-            <h2 class="aui-dialog2-header-main">Demande d'informations supplémentaires</h2>
+            <h2 class="aui-dialog2-header-main">Demande infos sup</h2>
             <button type="button" class="aui-close-button clr-dialog-close" aria-label="Fermer"></button>
         </header>
         <div class="aui-dialog2-content">
@@ -83,6 +83,25 @@
             <div class="aui-dialog2-footer-actions">
                 <button type="button" class="aui-button aui-button-primary clr-submit" data-kind="reply">Envoyer</button>
                 <button type="button" class="aui-button aui-button-link clr-dialog-close">Annuler</button>
+            </div>
+        </footer>
+    </section>
+
+    <!-- Fenêtre : confirmation d'annulation -->
+    <section id="clr-cancel-dialog" class="aui-dialog2 aui-dialog2-small aui-layer clr-dialog" role="dialog" aria-hidden="true">
+        <header class="aui-dialog2-header">
+            <h2 class="aui-dialog2-header-main">Annuler la demande</h2>
+            <button type="button" class="aui-close-button clr-dialog-close" aria-label="Fermer"></button>
+        </header>
+        <div class="aui-dialog2-content">
+            <div class="aui-message aui-message-error clr-form-error clr-hidden"><p></p></div>
+            <p class="clr-cancel-prompt">Voulez-vous vraiment annuler cette demande d'infos sup ?</p>
+            <p class="clr-hint">Le ticket vous sera immédiatement réassigné et les transitions du workflow seront débloquées.</p>
+        </div>
+        <footer class="aui-dialog2-footer">
+            <div class="aui-dialog2-footer-actions">
+                <button type="button" id="clr-confirm-cancel" class="aui-button aui-button-primary">Confirmer l'annulation</button>
+                <button type="button" class="aui-button aui-button-link clr-dialog-close">Non, conserver</button>
             </div>
         </footer>
     </section>
