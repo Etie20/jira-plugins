@@ -1,13 +1,13 @@
-# Jira Plugins - Data Center
+﻿# Jira Plugins - Data Center
 
-Ce dépôt regroupe l'ensemble des plugins Jira Data Center (version 10.3.5+, Java 17) développés par **Etienne FOYANG** au sein du **Département Projet et Innovation (DPI)**, accompagnés de la documentation technique et de la présentation de référence.
+Ce dépôt regroupe l'ensemble des plugins Jira Data Center (version 10.3.5+, Java 17) développés par **Etienne FOYANG** au sein du **Data Process et Innovation (DPI)**, accompagnés de la documentation technique et de la présentation de référence.
 
 ---
 
 ## 📦 Contenu du dépôt
 
 ### 1. [`jira-clarification-loop`](./jira-clarification-loop/)
-Plugin complet de **boucle de demande de précision et réassignation automatique** :
+Plugin complet de **boucle de demande d'informations supplémentaires et réassignation automatique** :
 * Panneau latéral droit (`web-panel`) transverse à tous les tickets sans modification des workflows.
 * Recherche globale d'utilisateurs Jira via autocomplétion (`/rest/api/2/user/picker`).
 * Dépôt direct de pièces jointes (upload multipart).

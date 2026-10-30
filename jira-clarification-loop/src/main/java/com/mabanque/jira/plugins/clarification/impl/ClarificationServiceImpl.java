@@ -129,9 +129,9 @@ public class ClarificationServiceImpl implements ClarificationService {
         if (isClosed(issue)) {
             perms.setInfo("Ticket clôturé : aucune demande possible.");
         } else if (assignee == null) {
-            perms.setInfo("Le ticket doit être assigné pour demander une précision.");
+            perms.setInfo("Le ticket doit être assigné pour faire une demande d'infos sup.");
         } else if (!sameUser(user, assignee)) {
-            perms.setInfo("Seul le responsable du ticket (" + assignee.getDisplayName() + ") peut demander une précision.");
+            perms.setInfo("Seul le responsable du ticket (" + assignee.getDisplayName() + ") peut faire une demande d'infos sup.");
         } else {
             perms.setCanRequest(true);
         }
@@ -184,7 +184,7 @@ public class ClarificationServiceImpl implements ClarificationService {
         assign(issue, recipient, requester);
 
         StringBuilder body = new StringBuilder();
-        body.append("❓ *Demande de précision* adressée à [~").append(recipient.getName()).append("]\n");
+        body.append("❓ *Demande d'informations supplémentaires* adressée à [~").append(recipient.getName()).append("]\n");
         body.append("_Étape : ").append(originStatus).append("_\n\n");
         body.append(entry.getQuestion());
         appendAttachment(body, entry.getRequestAttachmentName());
@@ -230,7 +230,7 @@ public class ClarificationServiceImpl implements ClarificationService {
         }
 
         StringBuilder body = new StringBuilder();
-        body.append("💬 *Réponse à la demande de précision*");
+        body.append("💬 *Réponse à la demande d'informations supplémentaires*");
         if (requester != null) {
             body.append(" - retour à [~").append(requester.getName()).append("]");
         }
@@ -267,7 +267,7 @@ public class ClarificationServiceImpl implements ClarificationService {
         saveHistory(issue.getKey(), history);
 
         assign(issue, requester, requester);
-        addComment(issue, requester, "↩️ *Demande de précision annulée* par son auteur.");
+        addComment(issue, requester, "↩️ *Demande d'informations supplémentaires annulée* par son auteur.");
 
         log.info("[CLARIFICATION] Demande annulee sur {} par {}", issue.getKey(), requester.getName());
         return pending;
@@ -290,7 +290,7 @@ public class ClarificationServiceImpl implements ClarificationService {
         }
         ApplicationUser assignee = issue.getAssignee();
         if (assignee == null || !sameUser(requester, assignee)) {
-            throw ClarificationException.forbidden("Seul le responsable du ticket peut demander une précision.");
+            throw ClarificationException.forbidden("Seul le responsable du ticket peut faire une demande d'infos sup.");
         }
     }
 

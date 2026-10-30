@@ -54,7 +54,7 @@
             })
             .fail(function () {
                 $("#clr-status").html("");
-                showPanelError("Impossible de charger les demandes de précision.");
+                showPanelError("Impossible de charger les demandes d'informations supplémentaires.");
             });
     }
 
@@ -78,7 +78,7 @@
 
     function renderIdle(perms) {
         if (perms.canRequest) {
-            return '<button type="button" id="clr-open-request" class="aui-button">Demander une précision</button>';
+            return '<button type="button" id="clr-open-request" class="aui-button">Demande d\'infos sup</button>';
         }
         return '<p class="clr-muted">' + esc(perms.info || "Aucune demande en cours.") + "</p>";
     }

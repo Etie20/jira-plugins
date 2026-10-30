@@ -1,6 +1,6 @@
-# Documentation Technique et Fonctionnelle : Plugin `jira-clarification-loop`
+﻿# Documentation Technique et Fonctionnelle : Plugin `jira-clarification-loop`
 
-**Auteur :** Etienne FOYANG - Département Projet et Innovation (DPI)  
+**Auteur :** Etienne FOYANG - Data Process et Innovation (DPI)  
 **Cible :** Jira Data Center 10.3.5 (Java 17 / Atlassian Plugin SDK 9.11.2)  
 **Clé du plugin :** `com.mabanque.jira.plugins.jira-clarification-loop`  
 **Version :** `1.0.0-SNAPSHOT`
@@ -25,7 +25,7 @@ L'implémentation initiale par scripts SIL présentait plusieurs contraintes d'e
 
 ### 1.3 Apports du plugin Java natif (`jira-clarification-loop`)
 Le plugin `jira-clarification-loop` remplace cette mécanique par un composant transverse :
-- **Zéro modification de workflow ni champ personnalisé :** un panneau latéral droit (`Demandes de précision`) s'affiche nativement sur la vue de tous les tickets Jira.
+- **Zéro modification de workflow ni champ personnalisé :** un panneau latéral droit (`Demandes d'informations supplémentaires`) s'affiche nativement sur la vue de tous les tickets Jira.
 - **Stockage dédié et autonome :** les échanges sont persistés au format JSON via l'API `PluginSettingsFactory` (SAL) de Jira, tout en doublant chaque action d'un commentaire horodaté natif sur le ticket.
 - **Recherche globale d'utilisateurs :** sélection du destinataire via l'API native `/rest/api/2/user/picker` avec autocomplétion.
 - **Pièces jointes intégrées :** dépôt direct de fichiers lors de la demande ou de la réponse via l'API native `/rest/api/2/issue/{issueKey}/attachments`.
@@ -40,7 +40,7 @@ Le plugin calcule dynamiquement les droits de l'utilisateur connecté à chaque 
 
 | Action | Acteur autorisé | Conditions préalables et contrôles métier | Effets produits |
 | :--- | :--- | :--- | :--- |
-| **Demander une précision** | **Uniquement l'assigné actuel** du ticket | - Utilisateur connecté<br>- Ticket non clôturé (sans résolution)<br>- Aucune demande déjà en statut `PENDING`<br>- Destinataire existant, actif, différent de l'auteur et disposant de la permission `BROWSE_PROJECTS` sur le ticket<br>- Commentaire non vide | - Création d'une entrée `PENDING`<br>- Ajout d'un commentaire tracé sur le ticket (avec lien vers la pièce jointe éventuelle)<br>- **Assignation du ticket au destinataire** |
+| **Demande d'infos sup** | **Uniquement l'assigné actuel** du ticket | - Utilisateur connecté<br>- Ticket non clôturé (sans résolution)<br>- Aucune demande déjà en statut `PENDING`<br>- Destinataire existant, actif, différent de l'auteur et disposant de la permission `BROWSE_PROJECTS` sur le ticket<br>- Commentaire non vide | - Création d'une entrée `PENDING`<br>- Ajout d'un commentaire tracé sur le ticket (avec lien vers la pièce jointe éventuelle)<br>- **Assignation du ticket au destinataire** |
 | **Répondre à la demande** | **Uniquement le destinataire** de la demande en attente | - Utilisateur connecté<br>- Demande en statut `PENDING`<br>- Utilisateur connecté = `recipientKey` de la demande<br>- Commentaire de réponse non vide | - Passage de l'entrée au statut `ANSWERED`<br>- Ajout d'un commentaire de réponse sur le ticket<br>- **Réassignation automatique du ticket à l'auteur initial (`authorKey`)** |
 | **Annuler la demande** | **Uniquement l'auteur** de la demande en attente | - Utilisateur connecté<br>- Demande en statut `PENDING`<br>- Utilisateur connecté = `authorKey` de la demande | - Passage de l'entrée au statut `CANCELLED`<br>- Ajout d'un commentaire d'annulation sur le ticket<br>- **Réassignation du ticket à l'auteur initial** |
 | **Consulter l'historique** | **Tout utilisateur** ayant le droit de voir le ticket | - Permission `BROWSE_PROJECTS` sur le ticket | - Lecture de tous les échanges passés et en cours<br>- Affichage d'un bandeau informatif expliquant pourquoi aucune action n'est disponible si l'utilisateur n'est pas l'acteur attendu |
@@ -123,8 +123,8 @@ Le fichier `src/main/resources/atlassian-plugin.xml` déclare trois modules :
 
 1. **`<web-resource key="clarification-resources-v3">` :**
    Charge `clarification.js` et `clarification.css` sur le contexte `jira.view.issue` (vue d'un ticket), avec les dépendances AUI (`com.atlassian.auiplugin:ajs`, `com.atlassian.auiplugin:aui-dialog2`, `com.atlassian.auiplugin:aui-lozenge`).
-2. **`<web-panel key="clarification-panel" location="atl.jira.view.issue.right.context">` :**
-   Affiche le panneau **Demandes de précision** dans la colonne latérale droite de chaque ticket à partir du template Velocity `templates/clarification-panel.vm`.
+2. **`<web-panel key="panneau-demande-infos-sup" location="atl.jira.view.issue.right.context">` :**
+   Affiche le panneau **Demandes d'informations supplémentaires** dans la colonne latérale droite de chaque ticket à partir du template Velocity `templates/clarification-panel.vm`.
 3. **`<rest key="clarification-rest" path="/clarification" version="1.0">` :**
    Expose les services REST du plugin sous `/rest/clarification/1.0/...`.
 
@@ -158,7 +158,7 @@ La classe `ClarificationRestResource` expose quatre endpoints JSON sous `/rest/c
 | Méthode | URL | Description | Corps de requête (JSON) |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/rest/clarification/1.0/issue/{issueKey}` | Retourne l'historique des échanges (`entries`) et les droits de l'utilisateur courant (`permissions`). | - |
-| `POST` | `/rest/clarification/1.0/issue/{issueKey}/request` | Crée une demande de précision (ou valide uniquement le formulaire si `validateOnly: true`). | `{ "recipientUsername": "...", "question": "...", "validateOnly": false }` |
+| `POST` | `/rest/clarification/1.0/issue/{issueKey}/request` | Crée une demande d'informations supplémentaires (ou valide uniquement le formulaire si `validateOnly: true`). | `{ "recipientUsername": "...", "question": "...", "validateOnly": false }` |
 | `POST` | `/rest/clarification/1.0/issue/{issueKey}/reply` | Enregistre la réponse du destinataire et réassigne le ticket à l'auteur initial. | `{ "answer": "...", "validateOnly": false }` |
 | `POST` | `/rest/clarification/1.0/issue/{issueKey}/cancel` | Annule la demande en cours (par son auteur) et réassigne le ticket à l'auteur. | `{}` |
 

@@ -8,7 +8,7 @@
     </plugin-info>
 
     <!-- Ressources Web (JS, CSS, AUI Dialog2) chargées sur la vue des tickets -->
-    <web-resource key="clarification-resources-v3" name="Ressources Web Clarification">
+    <web-resource key="clarification-resources-v4" name="Ressources Web Demandes d'infos sup">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
         <dependency>com.atlassian.auiplugin:aui-flag</dependency>
         <dependency>com.atlassian.auiplugin:dialog2</dependency>
@@ -20,14 +20,14 @@
     </web-resource>
 
     <!-- Panneau latéral transverse disponible sur TOUS les projets et workflows -->
-    <web-panel key="clarification-panel" name="Panneau Informations Complementaires" location="atl.jira.view.issue.right.context" weight="140">
-        <description>Permet de demander des précisions et d'enregistrer les allers-retours de validation</description>
+    <web-panel key="panneau-demande-infos-sup" name="Panneau Demandes d'informations supplémentaires" location="atl.jira.view.issue.right.context" weight="140">
+        <description>Permet de demander des informations supplémentaires et d'enregistrer les allers-retours de validation</description>
         <resource name="view" type="velocity" location="templates/clarification-panel.vm"/>
     </web-panel>
 
     <!-- API REST transverse : /rest/clarification/1.0/issue/{issueKey} -->
     <rest key="clarification-rest" path="/clarification" version="1.0">
-        <description>API REST pour les demandes d'informations complémentaires et réponses</description>
+        <description>API REST pour les demandes d'informations supplémentaires et réponses</description>
         <package>com.mabanque.jira.plugins.clarification.rest</package>
     </rest>
 

@@ -9,12 +9,12 @@
     <version>1.0.0-SNAPSHOT</version>
 
     <organization>
-        <name>DPI - Département Projet et Innovation</name>
+        <name>DPI - Data Process et Innovation</name>
         <url>https://www.mabanque.fr</url>
     </organization>
 
     <name>jira-clarification-loop</name>
-    <description>Plugin transverse de gestion des demandes d'informations complémentaires et allers-retours de validation sur tous les workflows.</description>
+    <description>Plugin transverse de gestion des demandes d'informations supplémentaires et allers-retours de validation sur tous les workflows.</description>
     <packaging>atlassian-plugin</packaging>
 
     <dependencies>
