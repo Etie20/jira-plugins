@@ -1,4 +1,4 @@
-<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+﻿<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
     <plugin-info>
         <description>${project.description}</description>
         <version>${project.version}</version>
@@ -27,7 +27,7 @@
     <!-- API REST : exposée sur /rest/compliance/1.0/issue/{issueKey} -->
     <rest key="compliance-rest" path="/compliance" version="1.0">
         <description>API REST de gestion des visas de conformite et d'audit</description>
-        <package>com.mabanque.jira.plugins.compliance.rest</package>
+        <package>com.socgen.jira.plugins.compliance.rest</package>
     </rest>
 
 </atlassian-plugin>

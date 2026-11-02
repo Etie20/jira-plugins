@@ -1,4 +1,4 @@
-<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+﻿<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
     <plugin-info>
         <description>${project.description}</description>
         <version>${project.version}</version>
@@ -32,7 +32,7 @@
     <!-- API REST transverse : /rest/clarification/1.0/issue/{issueKey} -->
     <rest key="clarification-rest" path="/clarification" version="1.0">
         <description>API REST pour les demandes d'informations supplémentaires et réponses</description>
-        <package>com.mabanque.jira.plugins.clarification.rest</package>
+        <package>com.socgen.jira.plugins.clarification.rest</package>
     </rest>
 
 </atlassian-plugin>

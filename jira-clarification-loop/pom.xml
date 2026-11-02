@@ -1,16 +1,16 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.mabanque.jira.plugins</groupId>
+    <groupId>com.socgen.jira.plugins</groupId>
     <artifactId>jira-clarification-loop</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 
     <organization>
         <name>DPI - Data Process et Innovation</name>
-        <url>https://www.mabanque.fr</url>
+        <url>https://www.socgen.com</url>
     </organization>
 
     <name>jira-clarification-loop</name>
@@ -113,7 +113,7 @@
                     <instructions>
                         <Atlassian-Plugin-Key>${atlassian.plugin.key}</Atlassian-Plugin-Key>
                         <Export-Package>
-                            com.mabanque.jira.plugins.clarification.api
+                            com.socgen.jira.plugins.clarification.api
                         </Export-Package>
                         <Import-Package>
                             !com.google.gson.*,

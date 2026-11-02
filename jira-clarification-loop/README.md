@@ -1,8 +1,8 @@
-# Documentation Technique et Fonctionnelle : Plugin `jira-clarification-loop`
+﻿# Documentation Technique et Fonctionnelle : Plugin `jira-clarification-loop`
 
 **Auteur :** Etienne FOYANG - Data Process et Innovation (DPI)  
 **Cible :** Jira Data Center 10.3.5 (Java 17 / Atlassian Plugin SDK 9.11.2)  
-**Clé du plugin :** `com.mabanque.jira.plugins.jira-clarification-loop`  
+**Clé du plugin :** `com.socgen.jira.plugins.jira-clarification-loop`  
 **Version :** `1.0.0-SNAPSHOT`
 
 ---
@@ -54,7 +54,7 @@ C:\Dev\JiraPlugins\jira-clarification-loop\
 ├── pom.xml                                      # Configuration Maven, Jira 10.3.5, Spring Scanner, OSGi Gson
 └── src/
     └── main/
-        ├── java/com/mabanque/jira/plugins/clarification/
+        ├── java/com/socgen/jira/plugins/clarification/
         │   ├── api/
         │   │   ├── ClarificationEntry.java          # Modèle de données d'un échange (PENDING / ANSWERED / CANCELLED)
         │   │   ├── ClarificationException.java      # Exception métier typée (message, champ ciblé, statut HTTP)
@@ -103,7 +103,7 @@ Le projet a été généré via `atlas-create-jira-plugin` puis configuré dans 
   </banningExcludes>
   <instructions>
       <Atlassian-Plugin-Key>${atlassian.plugin.key}</Atlassian-Plugin-Key>
-      <Export-Package>com.mabanque.jira.plugins.clarification.api</Export-Package>
+      <Export-Package>com.socgen.jira.plugins.clarification.api</Export-Package>
       <Import-Package>
           !com.google.gson.*,
           org.springframework.osgi.*;resolution:="optional",
@@ -143,7 +143,7 @@ Le fichier `src/main/resources/atlassian-plugin.xml` déclare trois modules :
 
 #### 3.2 Implémentation (`ClarificationServiceImpl.java`)
 Annotée avec `@ExportAsService({ClarificationService.class})` et `@Named("clarificationService")`, la classe reçoit par injection (`@Inject` + `@ComponentImport`) :
-- `PluginSettingsFactory` : stockage clé-valeur persistant de la liste des échanges par ticket (`com.mabanque.jira.clarification.v1:issue.{ISSUE_KEY}`).
+- `PluginSettingsFactory` : stockage clé-valeur persistant de la liste des échanges par ticket (`com.socgen.jira.clarification.v1:issue.{ISSUE_KEY}`).
 - `IssueManager` : récupération du `MutableIssue`, mise à jour de l'assigné (`issue.setAssignee(targetUser)`) et sauvegarde sans déclencher de transition de workflow (`issueManager.updateIssue(..., EventDispatchOption.ISSUE_ASSIGNED, false)`).
 - `CommentManager` : publication automatique d'un commentaire formaté Wiki Jira lors de chaque demande, réponse ou annulation.
 - `UserManager` : recherche des utilisateurs par `username` ou `userKey` et vérification que le compte est actif (`user.isActive()`).
