@@ -22,6 +22,7 @@
             return;
         }
         positionPanel();
+        ensurePanelOpen();
         if ($content.data("clr-ready")) {
             return;
         }
@@ -34,6 +35,22 @@
         moveDialogToBody("#clr-cancel-dialog");
 
         load();
+    }
+
+    // Assure que le panneau est ouvert (déplié) par défaut et supprime tout badge résiduel
+    function ensurePanelOpen() {
+        var $module = $("#clr-content").closest(".module");
+        if (!$module.length) {
+            $module = $("#demande-infos-sup, [id*='demande-infos-sup']").first();
+        }
+        if ($module.length) {
+            $module.find("#clr-count").remove();
+            if ($module.hasClass("collapsed")) {
+                $module.removeClass("collapsed");
+            }
+            $module.find("button.toggle-title, .toggle-title").attr("aria-expanded", "true");
+            $module.find(".mod-content").show();
+        }
     }
 
     // Garantit que le panneau est toujours en 2e position (juste après "Personnes" et avant "Dates")
@@ -77,56 +94,13 @@
     // Rendu du panneau
     // ------------------------------------------------------------------
 
-    function updateBadge(count) {
-        var $module = $("#clr-content").closest(".module");
-        if (!$module.length) {
-            $module = $("#demande-infos-sup, [id*='demande-infos-sup']").first();
-        }
-        var $header = $module.find(".mod-header").first();
-        if (!$header.length) {
-            $header = $module;
-        }
-
-        // Trouver le conteneur du titre (heading h1-h6 ou .toggle-title)
-        var $titleEl = $header.find("h1, h2, h3, h4, h5, h6, .toggle-title").first();
-        if (!$titleEl.length) {
-            $titleEl = $header;
-        }
-
-        // Forcer le conteneur du titre en ligne sans retour possible à la ligne
-        $titleEl.css({
-            "display": "inline-flex",
-            "align-items": "center",
-            "white-space": "nowrap",
-            "flex-direction": "row",
-            "flex-wrap": "nowrap"
-        });
-
-        // Supprimer tout badge existant ou orphelin dans le module
-        $module.find("#clr-count").remove();
-
-        // Créer le badge avec styles stricts en ligne (garantit le positionnement horizontal à droite du texte)
-        var $badge = $('<span id="clr-count" class="aui-badge clr-header-badge" style="margin-left: 8px !important; margin-right: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; vertical-align: middle !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; position: static !important; float: none !important; white-space: nowrap !important; flex-shrink: 0 !important;">' + count + '</span>');
-
-        // Si le titre a un <span> enfant contenant le libellé, on insère le badge juste après
-        var $span = $titleEl.find("span").filter(function () {
-            return $(this).text().indexOf("Demande infos sup") !== -1;
-        }).first();
-
-        if ($span.length) {
-            $span.after($badge);
-        } else {
-            $titleEl.append($badge);
-        }
-    }
-
     function render() {
         positionPanel();
+        ensurePanelOpen();
         var entries = (state.data && state.data.entries) || [];
         var perms = (state.data && state.data.permissions) || {};
         var pending = findPending(entries);
 
-        updateBadge(entries.length);
         $("#clr-status").html(pending ? renderPending(pending, perms) : renderIdle(perms));
         toggleWorkflowTransitions(!!pending, pending);
 
