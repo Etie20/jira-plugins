@@ -1,0 +1,15 @@
+<atlassian-plugin key="${project.groupId}.${project.artifactId}-tests" name="${project.name}" plugins-version="2">
+    <plugin-info>
+        <description>${project.description}</description>
+        <version>${project.version}</version>
+        <vendor name="DPI - Data Process &amp; Innovation" url="${project.organization.url}" />
+        <param name="atlassian-data-center-compatible">true</param>
+    </plugin-info>
+
+    <!-- from our base plugin -->
+    <component-import key="attachmentsDownloadPluginComponent" interface="com.socgen.jira.plugins.attachments_download.api.AttachmentsDownloadPluginComponent"/>
+
+    <!-- from the product container -->
+    <component-import key="applicationProperties" interface="com.atlassian.sal.api.ApplicationProperties" />
+    
+</atlassian-plugin>

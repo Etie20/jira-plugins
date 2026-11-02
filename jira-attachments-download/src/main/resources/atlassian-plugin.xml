@@ -1,0 +1,49 @@
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+    <plugin-info>
+        <description>${project.description}</description>
+        <version>${project.version}</version>
+        <vendor name="DPI - Data Process &amp; Innovation" url="${project.organization.url}" />
+        <param name="plugin-icon">images/pluginIcon.png</param>
+        <param name="plugin-logo">images/pluginLogo.png</param>
+        <param name="atlassian-data-center-compatible">true</param>
+    </plugin-info>
+
+    <!-- add our i18n resource -->
+    <resource type="i18n" name="i18n" location="jira-attachments-download"/>
+    
+    <!-- add our web resources -->
+    <web-resource key="jira-attachments-download-resources" name="jira-attachments-download Web Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <dependency>com.atlassian.auiplugin:aui-dialog2</dependency>
+        
+        <resource type="download" name="jira-attachments-download.css" location="/css/jira-attachments-download.css"/>
+        <resource type="download" name="jira-attachments-download.js" location="/js/jira-attachments-download.js"/>
+        <resource type="download" name="images/" location="/images"/>
+
+        <context>jira.general</context>
+        <context>jira.view.issue</context>
+        <context>atl.general</context>
+    </web-resource>
+
+    <!-- REST module for downloading attachments -->
+    <rest key="jira-attachments-download-rest" path="/attachments-download" version="1.0">
+        <description>REST API for querying, previewing and downloading Jira attachments as a structured ZIP archive.</description>
+    </rest>
+
+    <!-- Web item: Download all attachments from issue tools menu -->
+    <web-item key="issue-download-attachments-zip" name="Download Issue Attachments ZIP" section="jira.issue.tools" weight="50">
+        <label key="download.attachments.label"/>
+        <tooltip key="download.attachments.tooltip"/>
+        <link linkId="attachments-download-trigger">/rest/attachments-download/1.0/zip?jql=key%20%3D%20${issue.key}</link>
+        <styleClass>attachments-download-trigger-btn icon-download</styleClass>
+    </web-item>
+
+    <!-- Web item: Project bulk attachments export link in project operations/tools -->
+    <web-item key="project-download-attachments-zip" name="Download Project Attachments ZIP" section="project_tools" weight="100">
+        <label key="download.project.attachments.label"/>
+        <tooltip key="download.project.attachments.tooltip"/>
+        <link linkId="attachments-download-project-trigger">/rest/attachments-download/1.0/zip?project=${project.key}</link>
+        <styleClass>attachments-download-trigger-btn</styleClass>
+    </web-item>
+
+</atlassian-plugin>

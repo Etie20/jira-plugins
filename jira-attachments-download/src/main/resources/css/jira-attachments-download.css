@@ -1,0 +1,347 @@
+/* Jira Attachments Download UI Styling */
+
+/* Dialog layout */
+#attachments-download-dialog .aui-dialog2-content {
+    max-height: 540px;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.attachments-download-trigger-btn .aui-icon {
+    margin-right: 4px;
+}
+
+/* Search-as-you-type multi-select box */
+.ad-search-box {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+}
+
+.ad-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.ad-input-wrapper input.text {
+    width: 100%;
+    padding-right: 30px;
+}
+
+.ad-input-wrapper .ad-spinner {
+    position: absolute;
+    right: 8px;
+    font-size: 11px;
+    color: #6b778c;
+    pointer-events: none;
+}
+
+/* Selected tags list */
+.ad-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+    min-height: 24px;
+}
+
+.ad-tag {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f4f5f7;
+    border: 1px solid #dfe1e6;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 12px;
+    line-height: 16px;
+    color: #172b4d;
+    transition: background-color 0.15s ease;
+}
+
+.ad-tag-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.ad-dot-todo { background-color: #42526e; }
+.ad-dot-inprogress { background-color: #0052cc; }
+.ad-dot-done { background-color: #36b37e; }
+.ad-dot-subtask { background-color: #6554c0; }
+.ad-dot-standard { background-color: #00875a; }
+
+.ad-tag-name {
+    font-weight: 500;
+}
+
+.ad-tag-badge {
+    font-size: 10px;
+    background-color: #ebecf0;
+    color: #505f79;
+    border-radius: 8px;
+    padding: 1px 5px;
+    margin-left: 6px;
+}
+
+.ad-tag-remove {
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #6b778c;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.ad-tag-remove:hover {
+    color: #de350b;
+}
+
+.ad-empty-hint {
+    font-size: 12px;
+    color: #6b778c;
+    font-style: italic;
+    line-height: 24px;
+}
+
+/* Dropdown list for live search */
+.ad-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #c1c7d0;
+    border-radius: 3px;
+    box-shadow: 0 4px 12px rgba(9, 30, 66, 0.25);
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 99999;
+    margin-top: 2px;
+    display: none;
+}
+
+.ad-dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #172b4d;
+    border-bottom: 1px solid #f4f5f7;
+    transition: background-color 0.1s ease;
+}
+
+.ad-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.ad-dropdown-item:hover,
+.ad-dropdown-item.focused {
+    background-color: #ebecf0;
+    color: #0052cc;
+}
+
+.ad-dropdown-item-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ad-project-key {
+    color: #0052cc;
+    font-weight: 600;
+}
+
+.ad-project-name {
+    color: #172b4d;
+}
+
+.ad-dropdown-highlight {
+    font-weight: bold;
+    color: #0052cc;
+    text-decoration: underline;
+}
+
+.ad-item-category {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: #f4f5f7;
+    color: #505f79;
+    flex-shrink: 0;
+}
+
+.ad-category-done {
+    background-color: #e3fcef;
+    color: #006644;
+}
+
+.ad-category-inprogress {
+    background-color: #deebff;
+    color: #0747a6;
+}
+
+.ad-category-todo {
+    background-color: #dfe1e6;
+    color: #42526e;
+}
+
+.ad-no-results {
+    padding: 10px 12px;
+    color: #6b778c;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* Quick action links */
+.ad-quick-actions {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #6b778c;
+}
+
+.ad-quick-actions a {
+    color: #0052cc;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.ad-quick-actions a:hover {
+    text-decoration: underline;
+}
+
+/* Collapsible Advanced Download Toggle & Section */
+.ad-advanced-toggle-wrapper {
+    margin: 16px 0 8px 0;
+    padding-top: 12px;
+    border-top: 1px solid #dfe1e6;
+}
+
+.ad-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0052cc;
+    text-decoration: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: background-color 0.15s ease;
+}
+
+.ad-advanced-toggle:hover,
+.ad-advanced-toggle:focus {
+    background-color: #deebff;
+    color: #0747a6;
+    text-decoration: none;
+}
+
+.ad-toggle-icon {
+    font-size: 12px;
+    line-height: 1;
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+}
+
+.ad-toggle-subtitle {
+    font-weight: normal;
+    font-size: 12px;
+    color: #6b778c;
+}
+
+.ad-advanced-section {
+    margin-top: 10px;
+    padding-top: 8px;
+}
+
+/* Interactive Format Pills & Custom Format Input */
+.ad-preset-formats-label {
+    font-size: 11px;
+    color: #505f79;
+    margin: 6px 0 6px 0;
+    font-weight: 500;
+}
+
+.ad-format-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.ad-format-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 14px;
+    border: 1px solid #dfe1e6;
+    background-color: #ffffff;
+    color: #42526e;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1.2;
+}
+
+.ad-format-pill:hover {
+    background-color: #ebecf0;
+    border-color: #c1c7d0;
+    color: #172b4d;
+}
+
+.ad-format-pill.selected {
+    background-color: #deebff;
+    border-color: #0052cc;
+    color: #0052cc;
+    font-weight: 600;
+}
+
+.ad-format-pill.selected:hover {
+    background-color: #b3d4ff;
+    border-color: #0747a6;
+    color: #0747a6;
+}
+
+.ad-pill-plus {
+    font-size: 12px;
+    color: #6b778c;
+    font-weight: bold;
+}
+
+.ad-pill-check {
+    font-size: 11px;
+    color: #0052cc;
+    font-weight: bold;
+}
+
+.ad-ext-tag {
+    cursor: pointer;
+}
+
+.ad-ext-tag:hover {
+    background-color: #ebecf0;
+}
+
+.ad-ext-input-row {
+    gap: 6px;
+}
+
+.ad-ext-input-row input.text {
+    padding-right: 10px;
+}
+
+.ad-btn-add-ext {
+    flex-shrink: 0;
+}
