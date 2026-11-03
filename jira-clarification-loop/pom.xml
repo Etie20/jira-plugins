@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
@@ -22,6 +22,37 @@
             <groupId>com.atlassian.jira</groupId>
             <artifactId>jira-api</artifactId>
             <version>${jira.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.atlassian.jira</groupId>
+            <artifactId>jira-core</artifactId>
+            <version>${jira.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>jndi</groupId>
+                    <artifactId>jndi</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>jta</groupId>
+                    <artifactId>jta</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.atlassian.templaterenderer</groupId>
+            <artifactId>atlassian-template-renderer-api</artifactId>
+            <version>4.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>3.1.0</version>
             <scope>provided</scope>
         </dependency>
 
@@ -113,7 +144,12 @@
                     <instructions>
                         <Atlassian-Plugin-Key>${atlassian.plugin.key}</Atlassian-Plugin-Key>
                         <Export-Package>
-                            com.socgen.jira.plugins.clarification.api
+                            com.socgen.jira.plugins.clarification.api,
+                            com.socgen.jira.plugins.clarification.impl,
+                            com.socgen.jira.plugins.clarification.rest,
+                            com.socgen.jira.plugins.clarification.servlet,
+                            com.socgen.jira.plugins.clarification.jql,
+                            com.socgen.jira.plugins.clarification.condition
                         </Export-Package>
                         <Import-Package>
                             !com.google.gson.*,
@@ -121,6 +157,7 @@
                             org.eclipse.gemini.blueprint.*;resolution:="optional",
                             javax.inject*;resolution:="optional",
                             jakarta.inject*;resolution:="optional",
+                            com.opensymphony.workflow.*;resolution:="optional",
                             *
                         </Import-Package>
                         <Embed-Dependency>gson;scope=compile|runtime;inline=true</Embed-Dependency>

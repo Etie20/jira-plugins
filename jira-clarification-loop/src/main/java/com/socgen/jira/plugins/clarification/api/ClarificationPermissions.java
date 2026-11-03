@@ -1,5 +1,8 @@
 package com.socgen.jira.plugins.clarification.api;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Droits de l'utilisateur connecté sur le module de précisions d'un ticket,
  * accompagnés du contexte utile à l'affichage (responsable, demandeur, utilisateur courant).
@@ -22,6 +25,9 @@ public class ClarificationPermissions {
     private String reporterDisplayName;
     private String assigneeName;
     private String assigneeDisplayName;
+
+    /** Noms des transitions à bloquer (configurées par l'admin projet). Liste vide = toutes bloquées (comportement v1). */
+    private List<String> blockedTransitionNames;
 
     public boolean isCanRequest() {
         return canRequest;
@@ -93,5 +99,13 @@ public class ClarificationPermissions {
 
     public void setAssigneeDisplayName(String assigneeDisplayName) {
         this.assigneeDisplayName = assigneeDisplayName;
+    }
+
+    public List<String> getBlockedTransitionNames() {
+        return blockedTransitionNames;
+    }
+
+    public void setBlockedTransitionNames(List<String> blockedTransitionNames) {
+        this.blockedTransitionNames = blockedTransitionNames != null ? blockedTransitionNames : new ArrayList<String>();
     }
 }

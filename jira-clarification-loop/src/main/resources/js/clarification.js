@@ -111,13 +111,41 @@
     }
 
     function toggleWorkflowTransitions(locked, pending) {
-        var $btns = $("#opsbar-opsbar-transitions a, a.issueaction-workflow-transition, #opsbar-transitions_more");
-        if (locked) {
-            var reason = "Transition bloquée : une demande d'infos sup est en attente de la réponse de " + ((pending && pending.recipient) || "son destinataire") + ".";
-            $btns.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
-        } else {
-            $btns.removeClass("clr-transition-locked").removeAttr("aria-disabled");
+        var $allBtns = $("#opsbar-opsbar-transitions a, a.issueaction-workflow-transition, #opsbar-transitions_more");
+        if (!locked) {
+            $allBtns.removeClass("clr-transition-locked").removeAttr("aria-disabled").removeAttr("title");
+            return;
         }
+
+        var blockedNames = (state.data && state.data.permissions && state.data.permissions.blockedTransitionNames) || [];
+        var blockAll = (blockedNames.length === 0);
+        var reason = "Transition bloquée : une demande d'infos sup est en attente de la réponse de " + ((pending && pending.recipient) || "son destinataire") + ".";
+
+        $allBtns.each(function () {
+            var $btn = $(this);
+            var btnText = $.trim($btn.text());
+
+            // Toujours bloquer le menu "Plus" si on bloque tout
+            var isMore = $btn.is("#opsbar-transitions_more");
+
+            if (blockAll || isMore) {
+                $btn.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
+            } else {
+                // Vérifier si le nom de la transition correspond à une transition bloquée
+                var shouldBlock = false;
+                for (var i = 0; i < blockedNames.length; i++) {
+                    if (btnText.toLowerCase() === blockedNames[i].toLowerCase()) {
+                        shouldBlock = true;
+                        break;
+                    }
+                }
+                if (shouldBlock) {
+                    $btn.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
+                } else {
+                    $btn.removeClass("clr-transition-locked").removeAttr("aria-disabled").removeAttr("title");
+                }
+            }
+        });
     }
 
     function renderIdle(perms) {
@@ -128,10 +156,12 @@
     }
 
     function renderPending(p, perms) {
+        var blockedNames = perms.blockedTransitionNames || [];
+        var lockLabel = blockedNames.length === 0 ? "Transitions bloquées" : blockedNames.length + " transition(s) bloquée(s)";
         var html =
             '<div class="clr-pending">' +
             '  <div class="clr-pending-title"><span class="aui-lozenge aui-lozenge-current">En attente</span>' +
-            '  <span class="aui-lozenge aui-lozenge-moved clr-lock-badge" title="Les transitions du workflow sont bloquées tant que la demande est en attente">Transitions bloquées</span></div>' +
+            '  <span class="aui-lozenge aui-lozenge-moved clr-lock-badge" title="Les transitions du workflow sont bloquées tant que la demande est en attente">' + esc(lockLabel) + '</span></div>' +
             '  <div class="clr-meta"><strong>' + esc(p.requestedBy) + "</strong> → <strong>" + esc(p.recipient) + "</strong> · " + esc(p.requestedAt) + "</div>" +
             '  <div class="clr-text">' + esc(p.question) + "</div>" +
                  attachmentHtml(p.requestAttachmentId, p.requestAttachmentName) +
@@ -577,14 +607,19 @@
             return;
         }
         var $target = $(e.target).closest("#opsbar-opsbar-transitions a, a.issueaction-workflow-transition, #opsbar-transitions_more");
-        if ($target.length) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (typeof e.stopImmediatePropagation === "function") {
-                e.stopImmediatePropagation();
-            }
-            showPanelError("Transitions bloquées : une demande d'infos sup est en attente de la réponse de " + (pending.recipient || "son destinataire") + ".");
+        if (!$target.length) {
+            return;
         }
+        // Vérifier si cette transition spécifique est bloquée
+        if (!$target.hasClass("clr-transition-locked")) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === "function") {
+            e.stopImmediatePropagation();
+        }
+        showPanelError("Transition bloquée : une demande d'infos sup est en attente de la réponse de " + (pending.recipient || "son destinataire") + ".");
     }, true);
 
     $(init);

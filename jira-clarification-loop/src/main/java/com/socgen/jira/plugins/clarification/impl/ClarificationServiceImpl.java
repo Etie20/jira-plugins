@@ -19,13 +19,17 @@ import com.socgen.jira.plugins.clarification.api.ClarificationException;
 import com.socgen.jira.plugins.clarification.api.ClarificationHistory;
 import com.socgen.jira.plugins.clarification.api.ClarificationPermissions;
 import com.socgen.jira.plugins.clarification.api.ClarificationService;
+import com.socgen.jira.plugins.clarification.api.ProjectConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @ExportAsService({ClarificationService.class})
@@ -36,6 +40,7 @@ public class ClarificationServiceImpl implements ClarificationService {
     private static final String PLUGIN_STORAGE_KEY = "com.socgen.jira.clarification";
     private static final String KEY_PREFIX = "clarification.issue.";
     private static final String BACKUP_KEY_PREFIX = "clarification.issue.backup.";
+    private static final String PENDING_INDEX_KEY = "clarification.pending.index";
     private static final int MAX_COMMENT_LENGTH = 5000;
 
     private final PluginSettingsFactory pluginSettingsFactory;
@@ -43,6 +48,7 @@ public class ClarificationServiceImpl implements ClarificationService {
     private final CommentManager commentManager;
     private final UserManager userManager;
     private final PermissionManager permissionManager;
+    private final ProjectConfigService projectConfigService;
     private final Gson gson;
     private final Object writeLock = new Object();
 
@@ -51,12 +57,14 @@ public class ClarificationServiceImpl implements ClarificationService {
                                     @ComponentImport IssueManager issueManager,
                                     @ComponentImport CommentManager commentManager,
                                     @ComponentImport UserManager userManager,
-                                    @ComponentImport PermissionManager permissionManager) {
+                                    @ComponentImport PermissionManager permissionManager,
+                                    ProjectConfigService projectConfigService) {
         this.pluginSettingsFactory = pluginSettingsFactory;
         this.issueManager = issueManager;
         this.commentManager = commentManager;
         this.userManager = userManager;
         this.permissionManager = permissionManager;
+        this.projectConfigService = projectConfigService;
         this.gson = new Gson();
     }
 
@@ -118,6 +126,45 @@ public class ClarificationServiceImpl implements ClarificationService {
         PluginSettings settings = getSettings();
         settings.put(KEY_PREFIX + cleanKey, json);
         settings.put(BACKUP_KEY_PREFIX + cleanKey, json);
+
+        // Maintenir l'index des tickets en attente pour la fonction JQL pendingInfoSup()
+        if (history.hasPending()) {
+            addToPendingIndex(settings, cleanKey);
+        } else {
+            removeFromPendingIndex(settings, cleanKey);
+        }
+    }
+
+    private void addToPendingIndex(PluginSettings settings, String issueKey) {
+        Object raw = settings.get(PENDING_INDEX_KEY);
+        Set<String> keys = new LinkedHashSet<String>();
+        if (raw instanceof String && !((String) raw).trim().isEmpty()) {
+            for (String k : ((String) raw).split(",")) {
+                if (k != null && !k.trim().isEmpty()) {
+                    keys.add(k.trim());
+                }
+            }
+        }
+        keys.add(issueKey);
+        settings.put(PENDING_INDEX_KEY, String.join(",", keys));
+    }
+
+    private void removeFromPendingIndex(PluginSettings settings, String issueKey) {
+        Object raw = settings.get(PENDING_INDEX_KEY);
+        if (!(raw instanceof String) || ((String) raw).trim().isEmpty()) {
+            return;
+        }
+        Set<String> keys = new LinkedHashSet<String>();
+        for (String k : ((String) raw).split(",")) {
+            if (k != null && !k.trim().isEmpty() && !k.trim().equals(issueKey)) {
+                keys.add(k.trim());
+            }
+        }
+        if (keys.isEmpty()) {
+            settings.remove(PENDING_INDEX_KEY);
+        } else {
+            settings.put(PENDING_INDEX_KEY, String.join(",", keys));
+        }
     }
 
     @Override
@@ -141,6 +188,20 @@ public class ClarificationServiceImpl implements ClarificationService {
         perms.setReporterDisplayName(reporter != null ? reporter.getDisplayName() : null);
         perms.setAssigneeName(assignee != null ? assignee.getName() : null);
         perms.setAssigneeDisplayName(assignee != null ? assignee.getDisplayName() : null);
+
+        // Vérifier si le module est activé pour ce projet/type de ticket
+        String projectKey = issue.getProjectObject() != null ? issue.getProjectObject().getKey() : null;
+        String issueTypeId = issue.getIssueType() != null ? issue.getIssueType().getId() : null;
+        if (projectKey != null && !projectConfigService.isEnabledFor(projectKey, issueTypeId)) {
+            perms.setInfo("Module non activé pour ce projet/type de ticket.");
+            return perms;
+        }
+
+        // Récupérer les transitions bloquées pour les transmettre au front
+        if (projectKey != null) {
+            ProjectConfig config = projectConfigService.getConfig(projectKey);
+            perms.setBlockedTransitionNames(config.getBlockedTransitionNames());
+        }
 
         if (user == null) {
             perms.setInfo("Connectez-vous pour interagir.");

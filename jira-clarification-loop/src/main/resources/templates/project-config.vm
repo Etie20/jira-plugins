@@ -1,0 +1,190 @@
+<html>
+<head>
+    <title>Demande infos sup - Configuration</title>
+    <meta name="decorator" content="atl.admin" />
+    $webResourceManager.requireResource("com.atlassian.auiplugin:ajs")
+    $webResourceManager.requireResource("com.atlassian.auiplugin:aui-toggle")
+    $webResourceManager.requireResource("com.atlassian.auiplugin:aui-flag")
+</head>
+<body>
+    <div class="aui-page-panel" id="clr-config-panel" data-project-key="$projectKey">
+        <div class="aui-page-panel-inner">
+            <div class="aui-page-panel-content">
+                <h2>Demande d'informations supplémentaires</h2>
+                <p class="clr-config-desc">Configurez le module de demande d'infos sup pour ce projet.</p>
+
+                <div id="clr-config-loading" class="aui-message aui-message-info">
+                    <p>Chargement de la configuration...</p>
+                </div>
+
+                <div id="clr-config-error" class="aui-message aui-message-error" style="display:none;">
+                    <p id="clr-config-error-msg"></p>
+                </div>
+
+                <form id="clr-config-form" class="aui" style="display:none;">
+                    <!-- Activation -->
+                    <div class="field-group">
+                        <label>Module actif</label>
+                        <aui-toggle id="clr-enabled" label="Activer le module"></aui-toggle>
+                        <div class="description">Active ou désactive le panneau « Demande infos sup » pour tous les tickets de ce projet.</div>
+                    </div>
+
+                    <!-- Types de tickets -->
+                    <fieldset class="group" id="clr-issue-types-group">
+                        <legend><span>Types de tickets éligibles</span></legend>
+                        <div class="description" style="margin-bottom:8px;">Si aucun type n'est coché, le module sera disponible pour tous les types (rétrocompatibilité).</div>
+                        <div id="clr-issue-types-list"></div>
+                    </fieldset>
+
+                    <!-- Transitions bloquées -->
+                    <fieldset class="group" id="clr-transitions-group">
+                        <legend><span>Transitions à bloquer</span></legend>
+                        <div class="description" style="margin-bottom:8px;">Sélectionnez les transitions du workflow qui doivent être bloquées lorsqu'une demande d'infos sup est en attente. Si aucune transition n'est cochée, toutes seront bloquées (comportement par défaut).</div>
+                        <div id="clr-transitions-list"></div>
+                    </fieldset>
+
+                    <!-- Bouton de sauvegarde -->
+                    <div class="buttons-container">
+                        <div class="buttons">
+                            <button type="submit" id="clr-save-btn" class="aui-button aui-button-primary">Enregistrer</button>
+                            <span id="clr-save-status" class="clr-save-status"></span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #clr-config-panel { max-width: 800px; }
+        .clr-config-desc { color: #707070; margin-bottom: 20px; }
+        #clr-issue-types-list .checkbox,
+        #clr-transitions-list .checkbox { margin-bottom: 4px; }
+        .clr-save-status { margin-left: 10px; color: #14892c; font-weight: bold; }
+    </style>
+
+    <script>
+    AJS.toInit(function () {
+        var projectKey = AJS.$("#clr-config-panel").data("project-key");
+        var baseUrl = AJS.contextPath() + "/plugins/servlet/clarification-config?projectKey=" + encodeURIComponent(projectKey);
+
+        function loadConfig() {
+            AJS.$.ajax({ url: baseUrl, type: "GET", dataType: "json" })
+                .done(function (data) {
+                    AJS.$("#clr-config-loading").hide();
+                    AJS.$("#clr-config-form").show();
+                    renderForm(data);
+                })
+                .fail(function (xhr) {
+                    AJS.$("#clr-config-loading").hide();
+                    AJS.$("#clr-config-error-msg").text(xhr.status === 403
+                        ? "Accès réservé aux administrateurs du projet."
+                        : "Impossible de charger la configuration.");
+                    AJS.$("#clr-config-error").show();
+                });
+        }
+
+        function renderForm(data) {
+            var config = data.config || {};
+            var issueTypes = data.issueTypes || [];
+            var transitions = data.transitions || [];
+            var enabledIds = config.enabledIssueTypeIds || [];
+            var blockedNames = config.blockedTransitionNames || [];
+
+            // Toggle activation
+            var $toggle = AJS.$("#clr-enabled");
+            if (config.enabled) {
+                $toggle.attr("checked", "checked");
+            } else {
+                $toggle.removeAttr("checked");
+            }
+
+            // Types de tickets
+            var $itList = AJS.$("#clr-issue-types-list").empty();
+            issueTypes.forEach(function (it) {
+                var checked = enabledIds.length === 0 || enabledIds.indexOf(it.id) >= 0 ? ' checked="checked"' : '';
+                $itList.append(
+                    '<div class="checkbox"><label>' +
+                    '<input type="checkbox" class="clr-it-cb" value="' + AJS.escapeHtml(it.id) + '"' + checked + ' /> ' +
+                    AJS.escapeHtml(it.name) +
+                    '</label></div>'
+                );
+            });
+
+            // Transitions
+            var $trList = AJS.$("#clr-transitions-list").empty();
+            transitions.forEach(function (tr) {
+                var checked = blockedNames.length === 0 || blockedNames.indexOf(tr.name) >= 0 ? ' checked="checked"' : '';
+                $trList.append(
+                    '<div class="checkbox"><label>' +
+                    '<input type="checkbox" class="clr-tr-cb" value="' + AJS.escapeHtml(tr.name) + '"' + checked + ' /> ' +
+                    AJS.escapeHtml(tr.name) +
+                    '</label></div>'
+                );
+            });
+        }
+
+        AJS.$("#clr-config-form").on("submit", function (e) {
+            e.preventDefault();
+            var $btn = AJS.$("#clr-save-btn").prop("disabled", true).text("Enregistrement...");
+            AJS.$("#clr-save-status").text("");
+
+            var $toggle = AJS.$("#clr-enabled");
+            var enabled = $toggle.attr("checked") === "checked" || $toggle.prop("checked") === true;
+
+            var enabledIssueTypeIds = [];
+            var allChecked = true;
+            AJS.$(".clr-it-cb").each(function () {
+                if (this.checked) {
+                    enabledIssueTypeIds.push(this.value);
+                } else {
+                    allChecked = false;
+                }
+            });
+            // Si tout est coché, on envoie une liste vide (= tous autorisés)
+            if (allChecked) { enabledIssueTypeIds = []; }
+
+            var blockedTransitionNames = [];
+            var allTrChecked = true;
+            AJS.$(".clr-tr-cb").each(function () {
+                if (this.checked) {
+                    blockedTransitionNames.push(this.value);
+                } else {
+                    allTrChecked = false;
+                }
+            });
+            // Si tout est coché, on envoie une liste vide (= toutes bloquées)
+            if (allTrChecked) { blockedTransitionNames = []; }
+
+            var payload = {
+                enabled: enabled,
+                enabledIssueTypeIds: enabledIssueTypeIds,
+                blockedTransitionNames: blockedTransitionNames
+            };
+
+            AJS.$.ajax({
+                url: baseUrl,
+                type: "POST",
+                contentType: "application/json; charset=UTF-8",
+                data: JSON.stringify(payload),
+                headers: { "X-Atlassian-Token": "no-check" }
+            })
+            .done(function () {
+                AJS.$("#clr-save-status").text("Configuration enregistrée ✓");
+                if (typeof AJS.flag === "function") {
+                    AJS.flag({ type: "success", body: "Configuration enregistrée.", close: "auto" });
+                }
+            })
+            .fail(function () {
+                AJS.$("#clr-save-status").css("color", "#d04437").text("Erreur lors de l'enregistrement.");
+            })
+            .always(function () {
+                $btn.prop("disabled", false).text("Enregistrer");
+            });
+        });
+
+        loadConfig();
+    });
+    </script>
+</body>
+</html>
