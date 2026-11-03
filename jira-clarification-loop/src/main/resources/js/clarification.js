@@ -44,28 +44,40 @@
     // ------------------------------------------------------------------
 
     function getCurrentSearchJql() {
-        var $adv = $("#advanced-search");
-        if ($adv.length && $adv.is(":visible")) {
-            return $.trim($adv.val() || "");
-        }
         var search = window.location.search || "";
         var m = search.match(/[?&]jql=([^&]*)/i);
-        if (m && m[1]) {
+        if (m && m[1] !== undefined) {
             try {
                 return decodeURIComponent(m[1].replace(/\+/g, " "));
             } catch (ignored) {
                 return m[1];
             }
         }
+        var $adv = $("#advanced-search");
+        if ($adv.length && $adv.is(":visible")) {
+            return $.trim($adv.val() || "");
+        }
         return "";
     }
 
     function isPendingFilterActive() {
-        return /pendingInfoSup\s*\(\s*\)/i.test(getCurrentSearchJql());
+        var urlJql = getCurrentSearchJql();
+        if (/pendingInfoSup\s*\(\s*\)/i.test(urlJql)) {
+            return true;
+        }
+        var $adv = $("#advanced-search");
+        if ($adv.length && $adv.is(":visible") && /pendingInfoSup\s*\(\s*\)/i.test($adv.val() || "")) {
+            return true;
+        }
+        return false;
     }
 
     function buildToggledJql(currentlyActive) {
         var jql = getCurrentSearchJql();
+        var $adv = $("#advanced-search");
+        if (!jql && $adv.length && $adv.is(":visible")) {
+            jql = $.trim($adv.val() || "");
+        }
         if (!currentlyActive) {
             if (!jql) {
                 return "issue in pendingInfoSup()";
@@ -97,16 +109,15 @@
     function initSearchFilter() {
         var active = isPendingFilterActive();
 
-        // 1. Bouton critère dans la barre de recherche de base (.search-criteria .criteria-list)
-        //    ou à côté du commutateur de mode (.search-options-container)
+        // 1. Bouton critère sobre dans la barre de recherche (.search-criteria .criteria-list ou .search-options-container)
         var $criteriaList = $(".search-criteria .criteria-list").first();
         if ($criteriaList.length) {
             var $existing = $("#clr-search-filter-item");
             if (!$existing.length) {
-                $existing = $('<li id="clr-search-filter-item"><button type="button" id="clr-search-filter-btn" class="criteria-selector aui-button aui-button-subtle"></button></li>');
+                $existing = $('<li id="clr-search-filter-item"><button type="button" id="clr-search-filter-btn" class="aui-button aui-button-subtle"></button></li>');
                 var $more = $criteriaList.find(".criteria-actions");
                 if ($more.length) {
-                    $more.before($existing);
+                    $more.after($existing);
                 } else {
                     $criteriaList.append($existing);
                 }
@@ -114,12 +125,13 @@
             updateSearchButtonState($("#clr-search-filter-btn"), active);
         } else {
             var $optionsBox = $(".search-options-container").first();
-            if ($optionsBox.length && !$("#clr-search-filter-btn").length) {
-                var $btn = $('<button type="button" id="clr-search-filter-btn" class="aui-button aui-button-subtle" style="margin-left:6px;"></button>');
-                $optionsBox.append($btn);
+            if ($optionsBox.length) {
+                var $btn = $("#clr-search-filter-btn");
+                if (!$btn.length) {
+                    $btn = $('<button type="button" id="clr-search-filter-btn" class="aui-button aui-button-subtle" style="margin-left:8px;"></button>');
+                    $optionsBox.append($btn);
+                }
                 updateSearchButtonState($btn, active);
-            } else if ($("#clr-search-filter-btn").length) {
-                updateSearchButtonState($("#clr-search-filter-btn"), active);
             }
         }
 
@@ -136,18 +148,32 @@
                 );
                 $sysFilters.append($item);
             }
-            $item.toggleClass("clr-active-filter", active);
+            var targetActiveClass = active ? "yes" : "no";
+            if ($item.attr("data-clr-active") !== targetActiveClass) {
+                $item.attr("data-clr-active", targetActiveClass);
+                $item.toggleClass("clr-active-filter", active);
+            }
         }
     }
 
     function updateSearchButtonState($btn, active) {
+        if (!$btn.length) {
+            return;
+        }
+        var targetState = active ? "on" : "off";
+        // Ne jamais recréer le DOM interne si l'état n'a pas changé (évite d'annuler le clic en cours)
+        if ($btn.attr("data-clr-state") === targetState) {
+            return;
+        }
+        $btn.attr("data-clr-state", targetState);
+        $btn.attr("aria-pressed", active ? "true" : "false");
         $btn.toggleClass("clr-search-active", active);
         if (active) {
-            $btn.attr("title", "Filtre actif : Demandes d'infos sup en attente (cliquer pour afficher tous les tickets)");
-            $btn.html('<div class="criteria-wrap"><span class="fieldLabel">Demande infos sup:</span> En attente &#10005;</div>');
+            $btn.attr("title", "Filtre actif : Demandes d'infos sup en attente (cliquer pour désactiver)");
+            $btn.html('<span class="clr-btn-label">Demande infos sup : </span><span class="clr-btn-val">En attente</span>');
         } else {
-            $btn.attr("title", "Cliquer pour filtrer les tickets ayant une demande d'informations supplémentaires en attente");
-            $btn.html('<div class="criteria-wrap"><span class="fieldLabel">Demande infos sup:</span> Tout</div>');
+            $btn.attr("title", "Filtrer les tickets ayant une demande d'informations supplémentaires en attente");
+            $btn.html('<span class="clr-btn-label">Demande infos sup : </span><span class="clr-btn-val">Tout</span>');
         }
     }
 
@@ -237,18 +263,19 @@
 
         $allBtns.each(function () {
             var $btn = $(this);
-            var btnText = $.trim($btn.text());
-
-            // Toujours bloquer le menu "Plus" si on bloque tout
             var isMore = $btn.is("#opsbar-transitions_more");
 
-            if (blockAll || isMore) {
+            if (blockAll) {
                 $btn.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
+            } else if (isMore) {
+                // Si seules certaines transitions sont bloquées, laisser ouvrir le menu "Plus"
+                // pour ne bloquer que les transitions concernées à l'intérieur
+                $btn.removeClass("clr-transition-locked").removeAttr("aria-disabled").removeAttr("title");
             } else {
-                // Vérifier si le nom de la transition correspond à une transition bloquée
+                var btnText = $.trim($btn.find(".trigger-label").text() || $btn.text());
                 var shouldBlock = false;
                 for (var i = 0; i < blockedNames.length; i++) {
-                    if (btnText.toLowerCase() === blockedNames[i].toLowerCase()) {
+                    if (btnText.toLowerCase() === String(blockedNames[i]).toLowerCase()) {
                         shouldBlock = true;
                         break;
                     }
@@ -664,9 +691,22 @@
     $(document)
         .on("click.clr", "#clr-search-filter-btn", function (e) {
             e.preventDefault();
+            e.stopPropagation();
+            var $btn = $(this);
+            if ($btn.data("clr-navigating")) {
+                return;
+            }
+            $btn.data("clr-navigating", true);
             var active = isPendingFilterActive();
             var nextJql = buildToggledJql(active);
+            updateSearchButtonState($btn, !active);
             window.location.href = AJS.contextPath() + "/issues/?jql=" + encodeURIComponent(nextJql);
+        })
+        .on("click.clr", "#opsbar-transitions_more", function () {
+            var pending = state.data && findPending(state.data.entries || []);
+            if (pending) {
+                setTimeout(function () { toggleWorkflowTransitions(true, pending); }, 50);
+            }
         })
         .on("click.clr", "#clr-open-request", function (e) { e.preventDefault(); openRequestDialog(); })
         .on("click.clr", "#clr-open-reply", function (e) { e.preventDefault(); openReplyDialog(); })
@@ -748,9 +788,9 @@
         if (window.MutationObserver) {
             var navTimer = null;
             var observer = new MutationObserver(function () {
-                if ($(".navigator-container, .search-criteria, .filter-panel-system-container").length) {
+                if (!$("#clr-search-filter-btn").length || !$("#clr-system-filter-item").length) {
                     clearTimeout(navTimer);
-                    navTimer = setTimeout(initSearchFilter, 120);
+                    navTimer = setTimeout(initSearchFilter, 100);
                 }
             });
             if (document.body) {

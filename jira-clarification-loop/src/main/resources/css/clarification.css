@@ -205,28 +205,63 @@
     font-size: 12px;
 }
 
-/* Filtre rapide "Demande infos sup" dans la recherche de tickets (Issue Navigator) */
+/* Filtre rapide sobre et natif Jira dans la barre de recherche (Issue Navigator) */
 #clr-search-filter-item {
     display: inline-block;
     vertical-align: top;
-    margin-right: 4px;
+    margin-left: 2px;
+}
+
+#clr-search-filter-btn {
+    height: 32px;
+    line-height: 30px;
+    padding: 0 10px;
+    border-radius: 3px;
+    font-size: 14px;
+    font-weight: 400;
+    background-color: #f4f5f7 !important;
+    border: 1px solid #dfe1e6 !important;
+    color: #42526e !important;
+    cursor: pointer;
+    transition: background-color 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+    user-select: none;
+}
+
+#clr-search-filter-btn * {
+    pointer-events: none;
+}
+
+#clr-search-filter-btn:hover {
+    background-color: #ebecf0 !important;
+    border-color: #c1c7d0 !important;
+    color: #172b4d !important;
 }
 
 #clr-search-filter-btn.clr-search-active {
-    background-color: #FBF5F5 !important;
-    border: 1px solid #B5121B !important;
-    color: #B5121B !important;
-    font-weight: 600;
+    background-color: #253858 !important;
+    border-color: #253858 !important;
+    color: #ffffff !important;
 }
 
-#clr-search-filter-btn.clr-search-active .fieldLabel {
-    color: #B5121B !important;
+#clr-search-filter-btn.clr-search-active:hover {
+    background-color: #344563 !important;
+    border-color: #344563 !important;
+    color: #ffffff !important;
+}
+
+#clr-search-filter-btn .clr-btn-label {
+    color: inherit !important;
+}
+
+#clr-search-filter-btn .clr-btn-val {
+    font-weight: 600;
+    color: inherit !important;
 }
 
 #clr-system-filter-item > a.clr-system-filter-link {
     display: block;
     padding: 5px 15px;
-    color: #0052cc;
+    color: #42526e;
     text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -235,10 +270,11 @@
 
 #clr-system-filter-item > a.clr-system-filter-link:hover {
     background-color: #ebecf0;
+    color: #172b4d;
 }
 
 #clr-system-filter-item.clr-active-filter > a.clr-system-filter-link {
     background-color: #ebecf0;
     color: #172b4d;
-    font-weight: 700;
+    font-weight: 600;
 }

@@ -58,6 +58,7 @@
         #clr-config-panel { max-width: 800px; }
         #clr-config-panel .clr-config-desc { color: #6b778c; margin-bottom: 20px; }
         #clr-config-panel .clr-save-status { margin-left: 10px; font-weight: bold; }
+        #clr-config-panel .clr-wf-hint { color: #6b778c; font-size: 12px; margin-left: 6px; }
     </style>
 
     <script type="text/javascript">
@@ -81,10 +82,11 @@
                     var value = String(item[valueKey]);
                     var id = cssClass + "-" + i;
                     var checked = (selected.length === 0 || selected.indexOf(value) >= 0) ? ' checked="checked"' : "";
+                    var wfHint = item.workflows ? '<span class="clr-wf-hint">(' + escapeHtml(item.workflows) + ')</span>' : "";
                     box.append(
                         '<div class="checkbox">' +
                         '<input type="checkbox" class="checkbox ' + cssClass + '" id="' + id + '" value="' + escapeHtml(value) + '"' + checked + ' />' +
-                        '<label for="' + id + '">' + escapeHtml(item.name) + '</label>' +
+                        '<label for="' + id + '">' + escapeHtml(item.name) + wfHint + '</label>' +
                         '</div>'
                     );
                 });

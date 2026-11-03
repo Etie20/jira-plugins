@@ -5,19 +5,15 @@ import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.permission.GlobalPermissionKey;
 import com.atlassian.jira.permission.ProjectPermissions;
 import com.atlassian.jira.project.Project;
-import com.atlassian.jira.scheme.Scheme;
 import com.atlassian.jira.security.GlobalPermissionManager;
 import com.atlassian.jira.security.PermissionManager;
 import com.atlassian.jira.user.ApplicationUser;
-import com.atlassian.jira.workflow.JiraWorkflow;
-import com.atlassian.jira.workflow.WorkflowManager;
-import com.atlassian.jira.workflow.WorkflowSchemeManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.opensymphony.workflow.loader.ActionDescriptor;
 import com.socgen.jira.plugins.clarification.api.ProjectConfig;
 import com.socgen.jira.plugins.clarification.impl.ProjectConfigService;
+import com.socgen.jira.plugins.clarification.rest.ClarificationRestResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,8 +25,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Servlet REST interne pour la page de configuration « Demande infos sup »
@@ -88,42 +82,12 @@ public class ClarificationConfigServlet extends HttpServlet {
             for (IssueType it : projectIssueTypes) {
                 JsonObject obj = new JsonObject();
                 obj.addProperty("id", it.getId());
-                obj.addProperty("name", it.getName());
+                obj.addProperty("name", it.getNameTranslation() != null ? it.getNameTranslation() : it.getName());
                 issueTypes.add(obj);
             }
         }
         result.add("issueTypes", issueTypes);
-
-        JsonArray transitions = new JsonArray();
-        Set<String> seen = new HashSet<String>();
-        WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
-        try {
-            WorkflowSchemeManager wsm = ComponentAccessor.getWorkflowSchemeManager();
-            Scheme scheme = wsm.getSchemeObject(project.getId());
-            Iterable<JiraWorkflow> workflows = null;
-            if (scheme != null) {
-                workflows = wfm.getWorkflowsFromScheme(scheme);
-            }
-            if (workflows != null) {
-                for (JiraWorkflow wf : workflows) {
-                    Collection<ActionDescriptor> actions = wf.getAllActions();
-                    if (actions != null) {
-                        for (ActionDescriptor action : actions) {
-                            String name = action.getName();
-                            if (name != null && !name.trim().isEmpty() && seen.add(name)) {
-                                JsonObject obj = new JsonObject();
-                                obj.addProperty("id", action.getId());
-                                obj.addProperty("name", name);
-                                transitions.add(obj);
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Impossible de charger les transitions du projet " + projectKey, e);
-        }
-        result.add("transitions", transitions);
+        result.add("transitions", ClarificationRestResource.extractProjectTransitions(project));
 
         resp.setContentType("application/json;charset=UTF-8");
         resp.getWriter().write(gson.toJson(result));

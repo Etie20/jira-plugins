@@ -10,9 +10,11 @@ import com.atlassian.jira.security.GlobalPermissionManager;
 import com.atlassian.jira.security.JiraAuthenticationContext;
 import com.atlassian.jira.security.PermissionManager;
 import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.jira.workflow.AssignableWorkflowScheme;
 import com.atlassian.jira.workflow.JiraWorkflow;
 import com.atlassian.jira.workflow.WorkflowManager;
 import com.atlassian.jira.workflow.WorkflowSchemeManager;
+import com.atlassian.jira.workflow.WorkflowUtil;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -20,6 +22,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.opensymphony.workflow.loader.ActionDescriptor;
+import com.opensymphony.workflow.loader.StepDescriptor;
+import com.opensymphony.workflow.loader.WorkflowDescriptor;
 import com.socgen.jira.plugins.clarification.api.ClarificationEntry;
 import com.socgen.jira.plugins.clarification.api.ClarificationException;
 import com.socgen.jira.plugins.clarification.api.ClarificationService;
@@ -30,8 +34,12 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -164,39 +172,13 @@ public class ClarificationRestResource {
             for (IssueType it : projectIssueTypes) {
                 JsonObject obj = new JsonObject();
                 obj.addProperty("id", it.getId());
-                obj.addProperty("name", it.getName());
+                obj.addProperty("name", it.getNameTranslation() != null ? it.getNameTranslation() : it.getName());
                 issueTypes.add(obj);
             }
         }
         result.add("issueTypes", issueTypes);
 
-        JsonArray transitions = new JsonArray();
-        Set<String> seen = new HashSet<String>();
-        try {
-            WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
-            WorkflowSchemeManager wsm = ComponentAccessor.getWorkflowSchemeManager();
-            Scheme scheme = wsm.getSchemeObject(project.getId());
-            Iterable<JiraWorkflow> workflows = scheme != null ? wfm.getWorkflowsFromScheme(scheme) : null;
-            if (workflows != null) {
-                for (JiraWorkflow wf : workflows) {
-                    Collection<ActionDescriptor> actions = wf.getAllActions();
-                    if (actions != null) {
-                        for (ActionDescriptor action : actions) {
-                            String name = action.getName();
-                            if (name != null && !name.trim().isEmpty() && seen.add(name)) {
-                                JsonObject obj = new JsonObject();
-                                obj.addProperty("id", action.getId());
-                                obj.addProperty("name", name);
-                                transitions.add(obj);
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        result.add("transitions", transitions);
-
+        result.add("transitions", extractProjectTransitions(project));
         return ok(result);
     }
 
@@ -223,6 +205,208 @@ public class ClarificationRestResource {
         } catch (Exception e) {
             return error(new ClarificationException(ClarificationException.BAD_REQUEST, "Données invalides."));
         }
+    }
+
+    /**
+     * Collecte 100 % des transitions de tous les workflows associés au projet
+     * (par type de ticket, par schéma de workflow et par workflow par défaut).
+     */
+    public static JsonArray extractProjectTransitions(Project project) {
+        JsonArray transitions = new JsonArray();
+        WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
+        WorkflowSchemeManager wsm = ComponentAccessor.getWorkflowSchemeManager();
+
+        Map<String, JiraWorkflow> workflowsByName = new LinkedHashMap<String, JiraWorkflow>();
+
+        // 1. Par chaque type de ticket du projet (méthode la plus fiable)
+        Collection<IssueType> projectIssueTypes = project.getIssueTypes();
+        if (projectIssueTypes != null) {
+            for (IssueType it : projectIssueTypes) {
+                try {
+                    JiraWorkflow wf = wfm.getWorkflow(project.getId(), it.getId());
+                    if (wf != null && wf.getName() != null) {
+                        workflowsByName.put(wf.getName(), wf);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        // 2. Via la map du schéma de workflow du projet
+        try {
+            Map<String, String> wfMap = wsm.getWorkflowMap(project);
+            if (wfMap != null) {
+                for (String wfName : wfMap.values()) {
+                    if (wfName != null && !workflowsByName.containsKey(wfName)) {
+                        JiraWorkflow wf = wfm.getWorkflow(wfName);
+                        if (wf != null) {
+                            workflowsByName.put(wf.getName(), wf);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 3. Via AssignableWorkflowScheme du projet
+        try {
+            AssignableWorkflowScheme aws = wsm.getWorkflowSchemeObj(project);
+            if (aws != null) {
+                String defWf = aws.getConfiguredDefaultWorkflow();
+                if (defWf != null && !workflowsByName.containsKey(defWf)) {
+                    JiraWorkflow wf = wfm.getWorkflow(defWf);
+                    if (wf != null) {
+                        workflowsByName.put(wf.getName(), wf);
+                    }
+                }
+                Map<String, String> mappings = aws.getMappings();
+                if (mappings != null) {
+                    for (String wfName : mappings.values()) {
+                        if (wfName != null && !workflowsByName.containsKey(wfName)) {
+                            JiraWorkflow wf = wfm.getWorkflow(wfName);
+                            if (wf != null) {
+                                workflowsByName.put(wf.getName(), wf);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 4. Via getSchemeFor(project)
+        try {
+            Scheme scheme = wsm.getSchemeFor(project);
+            if (scheme != null) {
+                Iterable<JiraWorkflow> schemeWfs = wfm.getWorkflowsFromScheme(scheme);
+                if (schemeWfs != null) {
+                    for (JiraWorkflow wf : schemeWfs) {
+                        if (wf != null && wf.getName() != null) {
+                            workflowsByName.put(wf.getName(), wf);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 5. Fallback sur le workflow par défaut de Jira si vide
+        if (workflowsByName.isEmpty()) {
+            try {
+                JiraWorkflow def = wfm.getDefaultWorkflow();
+                if (def != null && def.getName() != null) {
+                    workflowsByName.put(def.getName(), def);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Collecte de toutes les transitions de chaque workflow (globales, communes et par étape)
+        Map<String, Set<String>> transitionToWorkflows = new LinkedHashMap<String, Set<String>>();
+        Map<String, Integer> transitionToFirstId = new LinkedHashMap<String, Integer>();
+
+        for (JiraWorkflow wf : workflowsByName.values()) {
+            String wfLabel = wf.getDisplayName() != null ? wf.getDisplayName() : wf.getName();
+            List<ActionDescriptor> actions = collectAllWorkflowActions(wf);
+            for (ActionDescriptor action : actions) {
+                if (action == null) {
+                    continue;
+                }
+                // Exclure uniquement l'action initiale de création du ticket (id=1 "Create")
+                try {
+                    if (wf.isInitialAction(action)) {
+                        continue;
+                    }
+                } catch (Exception ignored) {
+                    if (action.getId() == 1) {
+                        continue;
+                    }
+                }
+
+                String displayName = null;
+                try {
+                    displayName = WorkflowUtil.getWorkflowTransitionDisplayName(action);
+                } catch (Exception ignored) {
+                }
+                if (displayName == null || displayName.trim().isEmpty()) {
+                    displayName = action.getName();
+                }
+                if (displayName == null || displayName.trim().isEmpty()) {
+                    continue;
+                }
+                displayName = displayName.trim();
+
+                Set<String> wfs = transitionToWorkflows.get(displayName);
+                if (wfs == null) {
+                    wfs = new LinkedHashSet<String>();
+                    transitionToWorkflows.put(displayName, wfs);
+                    transitionToFirstId.put(displayName, action.getId());
+                }
+                if (wfLabel != null && !wfLabel.trim().isEmpty()) {
+                    wfs.add(wfLabel.trim());
+                }
+            }
+        }
+
+        boolean multipleWorkflows = workflowsByName.size() > 1;
+        for (Map.Entry<String, Set<String>> entry : transitionToWorkflows.entrySet()) {
+            String name = entry.getKey();
+            JsonObject obj = new JsonObject();
+            obj.addProperty("id", transitionToFirstId.get(name));
+            obj.addProperty("name", name);
+            if (multipleWorkflows && !entry.getValue().isEmpty()) {
+                obj.addProperty("workflows", String.join(", ", entry.getValue()));
+            }
+            transitions.add(obj);
+        }
+
+        return transitions;
+    }
+
+    private static List<ActionDescriptor> collectAllWorkflowActions(JiraWorkflow wf) {
+        List<ActionDescriptor> list = new ArrayList<ActionDescriptor>();
+        try {
+            Collection<ActionDescriptor> all = wf.getAllActions();
+            if (all != null) {
+                list.addAll(all);
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            WorkflowDescriptor wd = wf.getDescriptor();
+            if (wd != null) {
+                if (wd.getGlobalActions() != null) {
+                    for (Object o : wd.getGlobalActions()) {
+                        if (o instanceof ActionDescriptor) {
+                            list.add((ActionDescriptor) o);
+                        }
+                    }
+                }
+                if (wd.getCommonActions() != null) {
+                    for (Object o : wd.getCommonActions().values()) {
+                        if (o instanceof ActionDescriptor) {
+                            list.add((ActionDescriptor) o);
+                        }
+                    }
+                }
+                if (wd.getSteps() != null) {
+                    for (Object s : wd.getSteps()) {
+                        if (s instanceof StepDescriptor) {
+                            StepDescriptor step = (StepDescriptor) s;
+                            if (step.getActions() != null) {
+                                for (Object a : step.getActions()) {
+                                    if (a instanceof ActionDescriptor) {
+                                        list.add((ActionDescriptor) a);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return list;
     }
 
     // ------------------------------------------------------------------
