@@ -17,6 +17,8 @@
     // ------------------------------------------------------------------
 
     function init() {
+        initSearchFilter();
+
         var $content = $("#clr-content");
         if (!$content.length) {
             return;
@@ -35,6 +37,118 @@
         moveDialogToBody("#clr-cancel-dialog");
 
         load();
+    }
+
+    // ------------------------------------------------------------------
+    // Filtre rapide sans JQL dans la recherche de tickets (/issues/)
+    // ------------------------------------------------------------------
+
+    function getCurrentSearchJql() {
+        var $adv = $("#advanced-search");
+        if ($adv.length && $adv.is(":visible")) {
+            return $.trim($adv.val() || "");
+        }
+        var search = window.location.search || "";
+        var m = search.match(/[?&]jql=([^&]*)/i);
+        if (m && m[1]) {
+            try {
+                return decodeURIComponent(m[1].replace(/\+/g, " "));
+            } catch (ignored) {
+                return m[1];
+            }
+        }
+        return "";
+    }
+
+    function isPendingFilterActive() {
+        return /pendingInfoSup\s*\(\s*\)/i.test(getCurrentSearchJql());
+    }
+
+    function buildToggledJql(currentlyActive) {
+        var jql = getCurrentSearchJql();
+        if (!currentlyActive) {
+            if (!jql) {
+                return "issue in pendingInfoSup()";
+            }
+            var orderMatch = jql.match(/\bORDER\s+BY\b/i);
+            if (orderMatch) {
+                var idx = orderMatch.index;
+                var wherePart = $.trim(jql.slice(0, idx));
+                var orderPart = $.trim(jql.slice(idx));
+                if (!wherePart) {
+                    return "issue in pendingInfoSup() " + orderPart;
+                }
+                return "(" + wherePart + ") AND issue in pendingInfoSup() " + orderPart;
+            }
+            return "(" + jql + ") AND issue in pendingInfoSup()";
+        } else {
+            var cleaned = jql
+                .replace(/\bAND\s+issue\s+in\s+pendingInfoSup\s*\(\s*\)/ig, "")
+                .replace(/\bissue\s+in\s+pendingInfoSup\s*\(\s*\)\s+AND\b/ig, "")
+                .replace(/\bissue\s+in\s+pendingInfoSup\s*\(\s*\)/ig, "");
+            cleaned = $.trim(cleaned);
+            if (/^\(\s*(.*)\s*\)$/.test(cleaned)) {
+                cleaned = cleaned.replace(/^\(\s*/, "").replace(/\s*\)$/, "");
+            }
+            return $.trim(cleaned);
+        }
+    }
+
+    function initSearchFilter() {
+        var active = isPendingFilterActive();
+
+        // 1. Bouton critère dans la barre de recherche de base (.search-criteria .criteria-list)
+        //    ou à côté du commutateur de mode (.search-options-container)
+        var $criteriaList = $(".search-criteria .criteria-list").first();
+        if ($criteriaList.length) {
+            var $existing = $("#clr-search-filter-item");
+            if (!$existing.length) {
+                $existing = $('<li id="clr-search-filter-item"><button type="button" id="clr-search-filter-btn" class="criteria-selector aui-button aui-button-subtle"></button></li>');
+                var $more = $criteriaList.find(".criteria-actions");
+                if ($more.length) {
+                    $more.before($existing);
+                } else {
+                    $criteriaList.append($existing);
+                }
+            }
+            updateSearchButtonState($("#clr-search-filter-btn"), active);
+        } else {
+            var $optionsBox = $(".search-options-container").first();
+            if ($optionsBox.length && !$("#clr-search-filter-btn").length) {
+                var $btn = $('<button type="button" id="clr-search-filter-btn" class="aui-button aui-button-subtle" style="margin-left:6px;"></button>');
+                $optionsBox.append($btn);
+                updateSearchButtonState($btn, active);
+            } else if ($("#clr-search-filter-btn").length) {
+                updateSearchButtonState($("#clr-search-filter-btn"), active);
+            }
+        }
+
+        // 2. Lien rapide dans le panneau latéral gauche « Filtres » (.system-filters)
+        var $sysFilters = $(".filter-panel-system-container ul.system-filters");
+        if ($sysFilters.length) {
+            var $item = $("#clr-system-filter-item");
+            if (!$item.length) {
+                var href = AJS.contextPath() + "/issues/?jql=" + encodeURIComponent("issue in pendingInfoSup()");
+                $item = $(
+                    '<li id="clr-system-filter-item">' +
+                    '<a class="clr-system-filter-link" href="' + href + '" title="Afficher les tickets ayant une demande d\'informations supplémentaires en attente">Demandes d\'infos sup</a>' +
+                    '</li>'
+                );
+                $sysFilters.append($item);
+            }
+            $item.toggleClass("clr-active-filter", active);
+        }
+    }
+
+    function updateSearchButtonState($btn, active) {
+        $btn.toggleClass("clr-search-active", active);
+        if (active) {
+            $btn.attr("title", "Filtre actif : Demandes d'infos sup en attente (cliquer pour afficher tous les tickets)");
+            $btn.html('<div class="criteria-wrap"><span class="fieldLabel">Demande infos sup:</span> En attente &#10005;</div>');
+        } else {
+            $btn.attr("title", "Cliquer pour filtrer les tickets ayant une demande d'informations supplémentaires en attente");
+            $btn.html('<div class="criteria-wrap"><span class="fieldLabel">Demande infos sup:</span> Tout</div>');
+        }
     }
 
     // Assure que le panneau est ouvert (déplié) par défaut et supprime tout badge résiduel
@@ -548,6 +662,12 @@
     // ------------------------------------------------------------------
 
     $(document)
+        .on("click.clr", "#clr-search-filter-btn", function (e) {
+            e.preventDefault();
+            var active = isPendingFilterActive();
+            var nextJql = buildToggledJql(active);
+            window.location.href = AJS.contextPath() + "/issues/?jql=" + encodeURIComponent(nextJql);
+        })
         .on("click.clr", "#clr-open-request", function (e) { e.preventDefault(); openRequestDialog(); })
         .on("click.clr", "#clr-open-reply", function (e) { e.preventDefault(); openReplyDialog(); })
         .on("click.clr", "#clr-open-cancel", function (e) { e.preventDefault(); openCancelDialog(); })
@@ -622,7 +742,22 @@
         showPanelError("Transition bloquée : une demande d'infos sup est en attente de la réponse de " + (pending.recipient || "son destinataire") + ".");
     }, true);
 
-    $(init);
+    $(function () {
+        init();
+        // Dans l'Issue Navigator, la barre de critères et les filtres système sont rendus en asynchrone
+        if (window.MutationObserver) {
+            var navTimer = null;
+            var observer = new MutationObserver(function () {
+                if ($(".navigator-container, .search-criteria, .filter-panel-system-container").length) {
+                    clearTimeout(navTimer);
+                    navTimer = setTimeout(initSearchFilter, 120);
+                }
+            });
+            if (document.body) {
+                observer.observe(document.body, { childList: true, subtree: true });
+            }
+        }
+    });
 
     if (window.JIRA && JIRA.bind && JIRA.Events && JIRA.Events.NEW_CONTENT_ADDED) {
         JIRA.bind(JIRA.Events.NEW_CONTENT_ADDED, function () { init(); });

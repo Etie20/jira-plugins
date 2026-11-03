@@ -4,7 +4,7 @@
     <meta name="decorator" content="admin" />
     <meta name="projectKey" content="$projectKey" />
     <meta name="projectId" content="$projectId" />
-    <meta name="admin.active.section" content="atl.jira.proj.config/projectgroup4" />
+    <meta name="admin.active.section" content="atl.jira.proj.config" />
     <meta name="admin.active.tab" content="clarification-project-config-link" />
 </head>
 <body>
@@ -69,7 +69,7 @@
         function start() {
             var $ = AJS.$;
             var projectKey = $("#clr-config-panel").data("project-key");
-            var url = AJS.contextPath() + "/plugins/servlet/clarification-config?projectKey=" + encodeURIComponent(projectKey);
+            var restUrl = AJS.contextPath() + "/rest/clarification/1.0/issue/config/" + encodeURIComponent(projectKey);
 
             function checkboxList(box, items, cssClass, valueKey, selected) {
                 box.empty();
@@ -99,7 +99,7 @@
                 return all ? [] : values;
             }
 
-            $.ajax({ url: url, type: "GET", dataType: "json", cache: false })
+            $.ajax({ url: restUrl, type: "GET", dataType: "json", cache: false })
                 .done(function (data) {
                     var config = data.config || {};
                     $("#clr-enabled").prop("checked", !!config.enabled);
@@ -128,7 +128,7 @@
                 };
 
                 $.ajax({
-                    url: url,
+                    url: restUrl,
                     type: "POST",
                     contentType: "application/json; charset=UTF-8",
                     data: JSON.stringify(payload),

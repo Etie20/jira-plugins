@@ -10,8 +10,8 @@
     <!-- Fichier de messages internationalisés (i18n) -->
     <resource type="i18n" name="i18n" location="i18n/jira-clarification-loop"/>
 
-    <!-- Ressources Web (JS, CSS, AUI Dialog2) chargées sur la vue des tickets -->
-    <web-resource key="clarification-resources-v14" name="Ressources Web Demande infos sup">
+    <!-- Ressources Web (JS, CSS, AUI Dialog2) chargées sur la vue des tickets et la recherche de tickets -->
+    <web-resource key="clarification-resources-v15" name="Ressources Web Demande infos sup">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
         <dependency>com.atlassian.auiplugin:aui-flag</dependency>
         <dependency>com.atlassian.auiplugin:dialog2</dependency>
@@ -20,6 +20,10 @@
         <resource type="download" name="clarification.js" location="/js/clarification.js"/>
 
         <context>jira.view.issue</context>
+        <context>jira.navigator</context>
+        <context>jira.navigator.simple</context>
+        <context>jira.navigator.advanced</context>
+        <context>jira.navigator.kickass</context>
     </web-resource>
 
     <!-- Panneau latéral transverse placé en 2e position (weight=20, entre Personnes=10 et Dates=40).
@@ -31,7 +35,7 @@
         <condition class="com.socgen.jira.plugins.clarification.condition.ClarificationPanelCondition"/>
     </web-panel>
 
-    <!-- API REST transverse : /rest/clarification/1.0/issue/{issueKey} -->
+    <!-- API REST transverse : /rest/clarification/1.0/issue/{issueKey} et /rest/clarification/1.0/issue/config/{projectKey} -->
     <rest key="clarification-rest" path="/clarification" version="1.0">
         <description>API REST pour les demandes d'informations supplémentaires et réponses</description>
         <package>com.socgen.jira.plugins.clarification.rest</package>
@@ -56,6 +60,13 @@
               section="atl.jira.proj.config/projectgroup4" weight="200">
         <label key="clarification.project.config.label">Demande infos sup</label>
         <link linkId="clarification-project-config-link">/plugins/servlet/clarification-config-page?projectKey=$projectKeyEncoded</link>
+    </web-item>
+
+    <!-- Lien rapide dans le menu haut « Tickets » pour filtrer en 1 clic sans saisir de JQL -->
+    <web-item key="clarification-pending-top-menu" name="Demandes d'infos sup en attente - Menu Tickets"
+              section="find_link/issues_new" weight="25">
+        <label key="clarification.search.menu.label">Demandes d'infos sup en attente</label>
+        <link linkId="clarification-pending-top-menu">/issues/?jql=issue%20in%20pendingInfoSup()</link>
     </web-item>
 
     <!-- Fonction JQL : issue in pendingInfoSup() -->

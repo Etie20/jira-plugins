@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.socgen.jira.plugins</groupId>
     <artifactId>jira-clarification-loop</artifactId>
-    <version>2.0.1</version>
+    <version>2.0.2</version>
 
     <organization>
         <name>DPI - Data Process et Innovation</name>
@@ -153,6 +153,8 @@
                         </Export-Package>
                         <Import-Package>
                             !com.google.gson.*,
+                            javax.servlet,
+                            javax.servlet.http,
                             org.springframework.osgi.*;resolution:="optional",
                             org.eclipse.gemini.blueprint.*;resolution:="optional",
                             javax.inject*;resolution:="optional",

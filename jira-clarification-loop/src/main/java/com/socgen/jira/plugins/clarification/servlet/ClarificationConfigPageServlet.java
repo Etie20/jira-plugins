@@ -7,23 +7,22 @@ import com.atlassian.jira.project.Project;
 import com.atlassian.jira.security.GlobalPermissionManager;
 import com.atlassian.jira.security.PermissionManager;
 import com.atlassian.jira.user.ApplicationUser;
-import com.atlassian.templaterenderer.TemplateRenderer;
-import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
 import javax.inject.Named;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
 
 /**
  * Servlet qui sert la page HTML de configuration du projet
- * (template Velocity rendu côté serveur).
+ * dans « Paramètres du projet -> Demande infos sup ».
  *
  * URL : /plugins/servlet/clarification-config-page?projectKey=XXX
  */
@@ -31,38 +30,67 @@ import java.util.Map;
 public class ClarificationConfigPageServlet extends HttpServlet {
 
     private static final Logger log = LoggerFactory.getLogger(ClarificationConfigPageServlet.class);
-    private final TemplateRenderer templateRenderer;
+    private static final String REQUEST_CACHE_PROJECT_KEY =
+            "com.atlassian.jira.projectconfig.util.ServletRequestProjectConfigRequestCache:project";
 
-    @Inject
-    public ClarificationConfigPageServlet(@ComponentImport TemplateRenderer templateRenderer) {
-        this.templateRenderer = templateRenderer;
+    public ClarificationConfigPageServlet() {
     }
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String projectKey = req.getParameter("projectKey");
         ApplicationUser user = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser();
+        Project project = getProject(projectKey);
 
-        if (!isProjectAdmin(user, projectKey)) {
+        if (project == null || !isProjectAdmin(user, project)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Accès réservé aux administrateurs du projet.");
             return;
         }
 
+        // Attributs requis par le décorateur SiteMesh "admin" (HeaderContextProvider / ServletRequestProjectConfigRequestCache)
+        req.setAttribute(REQUEST_CACHE_PROJECT_KEY, project);
+        req.setAttribute("project", project);
+        req.setAttribute("projectKey", project.getKey());
+
+        try {
+            ComponentAccessor.getWebResourceManager().requireResourcesForContext("jira.admin.conf");
+            ComponentAccessor.getWebResourceManager().requireResource("com.atlassian.jira.jira-project-config-plugin:project-config-global");
+        } catch (Exception e) {
+            log.debug("Ressources project-config non chargées", e);
+        }
+
         resp.setContentType("text/html;charset=UTF-8");
-        Map<String, Object> context = new HashMap<String, Object>();
-        Project project = ComponentAccessor.getProjectManager().getProjectObjByKey(projectKey.trim().toUpperCase());
-        context.put("projectKey", project.getKey());
-        context.put("projectId", project.getId());
-        context.put("projectName", project.getName());
-        templateRenderer.render("templates/project-config.vm", context, resp.getWriter());
+        String template = loadTemplate();
+        String html = template
+                .replace("$projectKey", escapeHtml(project.getKey()))
+                .replace("$projectId", String.valueOf(project.getId()))
+                .replace("$projectName", escapeHtml(project.getName()));
+        resp.getWriter().write(html);
     }
 
-    private boolean isProjectAdmin(ApplicationUser user, String projectKey) {
-        if (user == null || projectKey == null || projectKey.trim().isEmpty()) {
-            return false;
+    private String loadTemplate() throws IOException {
+        InputStream in = getClass().getClassLoader().getResourceAsStream("templates/project-config.vm");
+        if (in == null) {
+            throw new IOException("Template templates/project-config.vm introuvable.");
         }
-        Project project = ComponentAccessor.getProjectManager().getProjectObjByKey(projectKey.trim().toUpperCase());
-        if (project == null) {
+        try (Scanner scanner = new Scanner(in, StandardCharsets.UTF_8.name()).useDelimiter("\\A")) {
+            return scanner.hasNext() ? scanner.next() : "";
+        }
+    }
+
+    private Project getProject(String projectKey) {
+        if (projectKey == null || projectKey.trim().isEmpty()) {
+            return null;
+        }
+        Project p = ComponentAccessor.getProjectManager().getProjectObjByKey(projectKey.trim().toUpperCase());
+        if (p == null) {
+            p = ComponentAccessor.getProjectManager().getProjectObjByKeyIgnoreCase(projectKey.trim());
+        }
+        return p;
+    }
+
+    private boolean isProjectAdmin(ApplicationUser user, Project project) {
+        if (user == null || project == null) {
             return false;
         }
         GlobalPermissionManager gpm = ComponentAccessor.getGlobalPermissionManager();
@@ -71,5 +99,15 @@ public class ClarificationConfigPageServlet extends HttpServlet {
         }
         PermissionManager pm = ComponentAccessor.getPermissionManager();
         return pm.hasPermission(ProjectPermissions.ADMINISTER_PROJECTS, project, user);
+    }
+
+    private static String escapeHtml(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 }
