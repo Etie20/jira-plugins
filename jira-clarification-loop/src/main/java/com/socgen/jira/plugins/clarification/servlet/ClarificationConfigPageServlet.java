@@ -50,7 +50,10 @@ public class ClarificationConfigPageServlet extends HttpServlet {
 
         resp.setContentType("text/html;charset=UTF-8");
         Map<String, Object> context = new HashMap<String, Object>();
-        context.put("projectKey", projectKey != null ? projectKey.trim().toUpperCase() : "");
+        Project project = ComponentAccessor.getProjectManager().getProjectObjByKey(projectKey.trim().toUpperCase());
+        context.put("projectKey", project.getKey());
+        context.put("projectId", project.getId());
+        context.put("projectName", project.getName());
         templateRenderer.render("templates/project-config.vm", context, resp.getWriter());
     }
 

@@ -37,11 +37,12 @@ public class ProjectConfigService {
 
     /**
      * Récupère la configuration pour un projet donné.
-     * Si aucune configuration n'existe, retourne un objet désactivé par défaut.
+     * Si aucune configuration n'a encore été enregistrée, le module est ACTIVÉ par défaut
+     * pour tous les types de tickets et toutes les transitions (comportement v1 conservé).
      */
     public ProjectConfig getConfig(String projectKey) {
         if (projectKey == null || projectKey.trim().isEmpty()) {
-            return new ProjectConfig();
+            return defaultConfig();
         }
         try {
             Object raw = getSettings().get(CONFIG_PREFIX + projectKey.trim().toUpperCase());
@@ -54,7 +55,14 @@ public class ProjectConfigService {
         } catch (Exception e) {
             log.error("Erreur lors de la lecture de la configuration pour le projet " + projectKey, e);
         }
-        return new ProjectConfig();
+        return defaultConfig();
+    }
+
+    /** Configuration par défaut : module actif, tous types de tickets, toutes transitions bloquées. */
+    private static ProjectConfig defaultConfig() {
+        ProjectConfig config = new ProjectConfig();
+        config.setEnabled(true);
+        return config;
     }
 
     /**
