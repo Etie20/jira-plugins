@@ -13,11 +13,13 @@ public class ProjectConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private boolean enabled;
+    private Boolean pauseSla;
     private List<String> enabledIssueTypeIds;
     private List<String> blockedTransitionNames;
 
     public ProjectConfig() {
         this.enabled = false;
+        this.pauseSla = Boolean.TRUE;
         this.enabledIssueTypeIds = new ArrayList<String>();
         this.blockedTransitionNames = new ArrayList<String>();
     }
@@ -28,6 +30,19 @@ public class ProjectConfig implements Serializable {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    /**
+     * Indique si le champ personnalisé « Attente Infos Sup » (pour Time to SLA)
+     * doit être synchronisé automatiquement lors d'une demande d'infos sup.
+     * Actif par défaut (y compris pour les projets déjà configurés en v2.0.2/v2.0.3).
+     */
+    public boolean isPauseSla() {
+        return pauseSla == null || pauseSla.booleanValue();
+    }
+
+    public void setPauseSla(boolean pauseSla) {
+        this.pauseSla = Boolean.valueOf(pauseSla);
     }
 
     public List<String> getEnabledIssueTypeIds() {

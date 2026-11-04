@@ -1,6 +1,14 @@
 package com.socgen.jira.plugins.clarification.rest;
 
+import com.atlassian.jira.avatar.Avatar;
+import com.atlassian.jira.avatar.AvatarService;
+import com.atlassian.jira.bc.user.search.UserSearchIssueContext;
+import com.atlassian.jira.bc.user.search.UserSearchParams;
+import com.atlassian.jira.bc.user.search.UserSearchService;
 import com.atlassian.jira.component.ComponentAccessor;
+import com.atlassian.jira.issue.MutableIssue;
+import com.atlassian.jira.issue.comments.Comment;
+import com.atlassian.jira.issue.fields.CustomField;
 import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.permission.GlobalPermissionKey;
 import com.atlassian.jira.permission.ProjectPermissions;
@@ -9,7 +17,12 @@ import com.atlassian.jira.scheme.Scheme;
 import com.atlassian.jira.security.GlobalPermissionManager;
 import com.atlassian.jira.security.JiraAuthenticationContext;
 import com.atlassian.jira.security.PermissionManager;
+import com.atlassian.jira.security.roles.ProjectRole;
+import com.atlassian.jira.security.roles.ProjectRoleActors;
+import com.atlassian.jira.security.roles.ProjectRoleManager;
+import com.atlassian.jira.security.roles.RoleActor;
 import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.jira.user.util.UserManager;
 import com.atlassian.jira.workflow.AssignableWorkflowScheme;
 import com.atlassian.jira.workflow.JiraWorkflow;
 import com.atlassian.jira.workflow.WorkflowManager;
@@ -26,14 +39,17 @@ import com.opensymphony.workflow.loader.StepDescriptor;
 import com.opensymphony.workflow.loader.WorkflowDescriptor;
 import com.socgen.jira.plugins.clarification.api.ClarificationEntry;
 import com.socgen.jira.plugins.clarification.api.ClarificationException;
+import com.socgen.jira.plugins.clarification.api.ClarificationHistory;
 import com.socgen.jira.plugins.clarification.api.ClarificationService;
 import com.socgen.jira.plugins.clarification.api.ProjectConfig;
+import com.socgen.jira.plugins.clarification.impl.ClarificationServiceImpl;
 import com.socgen.jira.plugins.clarification.impl.ProjectConfigService;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -46,6 +62,7 @@ import java.util.Set;
  * API REST du module de demande d'informations supplémentaires.
  *
  * GET  /rest/clarification/1.0/issue/{key}              historique + droits de l'utilisateur
+ * GET  /rest/clarification/1.0/issue/{key}/users?q=...  recherche d'utilisateurs filtrée par sécurité du ticket et intervenants
  * POST /rest/clarification/1.0/issue/{key}/request      {comment, recipient, attachmentId, attachmentName, validateOnly}
  * POST /rest/clarification/1.0/issue/{key}/reply        {comment, attachmentId, attachmentName, validateOnly}
  * POST /rest/clarification/1.0/issue/{key}/cancel
@@ -59,6 +76,7 @@ import java.util.Set;
 public class ClarificationRestResource {
 
     private static final String JSON_UTF8 = "application/json;charset=UTF-8";
+    private static final int MAX_USER_RESULTS = 15;
 
     private final ClarificationService clarificationService;
     private final ProjectConfigService projectConfigService;
@@ -86,6 +104,234 @@ public class ClarificationRestResource {
         } catch (ClarificationException e) {
             return error(e);
         }
+    }
+
+    /**
+     * Recherche d'utilisateurs contextuelle au ticket et au projet :
+     * 1. Vérifie systématiquement la sécurité du ticket (permission BROWSE_PROJECTS + Security Level du ticket).
+     * 2. Propose en priorité les personnes qui interviennent sur le ticket (Rapporteur, Créateur,
+     *    Participants aux demandes d'infos sup, Commentateurs, Observateurs).
+     * 3. Propose ensuite les membres des rôles du projet et les utilisateurs assignables sur le ticket.
+     * 4. Si une saisie est effectuée, élargit aux utilisateurs ayant accès au ticket.
+     */
+    @GET
+    @Path("/{issueKey}/users")
+    @Produces(JSON_UTF8)
+    public Response searchIssueUsers(@PathParam("issueKey") String issueKey,
+                                     @QueryParam("q") String query) {
+        ApplicationUser currentUser = authenticationContext.getLoggedInUser();
+        if (currentUser == null) {
+            return error(ClarificationException.forbidden("Vous devez être connecté."));
+        }
+        if (issueKey == null || issueKey.trim().isEmpty()) {
+            return error(new ClarificationException(ClarificationException.BAD_REQUEST, "Clé de ticket manquante."));
+        }
+
+        MutableIssue issue = ComponentAccessor.getIssueManager().getIssueObject(issueKey.trim().toUpperCase());
+        if (issue == null) {
+            return error(new ClarificationException(ClarificationException.NOT_FOUND, "Ticket introuvable."));
+        }
+
+        PermissionManager pm = ComponentAccessor.getPermissionManager();
+        if (!pm.hasPermission(ProjectPermissions.BROWSE_PROJECTS, issue, currentUser)) {
+            return error(ClarificationException.forbidden("Accès refusé à ce ticket."));
+        }
+
+        String q = query == null ? "" : query.trim().toLowerCase();
+        Map<String, JsonObject> candidates = new LinkedHashMap<String, JsonObject>();
+        UserManager um = ComponentAccessor.getUserManager();
+        AvatarService avatarService = ComponentAccessor.getAvatarService();
+
+        // 1. Intervenants directs du ticket
+        addCandidate(candidates, issue.getReporter(), "Rapporteur", issue, currentUser, pm, avatarService, q);
+        addCandidate(candidates, issue.getCreator(), "Créateur", issue, currentUser, pm, avatarService, q);
+
+        try {
+            ClarificationHistory history = clarificationService.getHistory(issue.getKey());
+            if (history != null && history.getEntries() != null) {
+                for (ClarificationEntry entry : history.getEntries()) {
+                    if (entry.getRequestedByUsername() != null) {
+                        addCandidate(candidates, um.getUserByName(entry.getRequestedByUsername()), "Intervenant", issue, currentUser, pm, avatarService, q);
+                    }
+                    if (entry.getRecipientUsername() != null) {
+                        addCandidate(candidates, um.getUserByName(entry.getRecipientUsername()), "Intervenant", issue, currentUser, pm, avatarService, q);
+                    }
+                    if (entry.getAnsweredByUsername() != null) {
+                        addCandidate(candidates, um.getUserByName(entry.getAnsweredByUsername()), "Intervenant", issue, currentUser, pm, avatarService, q);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            List<Comment> comments = ComponentAccessor.getCommentManager().getCommentsForUser(issue, currentUser);
+            if (comments != null) {
+                for (Comment c : comments) {
+                    if (c != null && c.getAuthorApplicationUser() != null) {
+                        addCandidate(candidates, c.getAuthorApplicationUser(), "Commentateur", issue, currentUser, pm, avatarService, q);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            Collection<ApplicationUser> watchers = ComponentAccessor.getWatcherManager().getWatchersUnsorted(issue);
+            if (watchers != null) {
+                for (ApplicationUser w : watchers) {
+                    addCandidate(candidates, w, "Observateur", issue, currentUser, pm, avatarService, q);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 2. Membres des rôles du projet (acteurs directs et groupes de taille raisonnable)
+        Project project = issue.getProjectObject();
+        if (project != null && candidates.size() < MAX_USER_RESULTS) {
+            try {
+                ProjectRoleManager prm = ComponentAccessor.getComponent(ProjectRoleManager.class);
+                if (prm != null) {
+                    Collection<ProjectRole> roles = prm.getProjectRoles();
+                    if (roles != null) {
+                        for (ProjectRole role : roles) {
+                            if (candidates.size() >= MAX_USER_RESULTS) {
+                                break;
+                            }
+                            ProjectRoleActors actors = prm.getProjectRoleActors(role, project);
+                            if (actors != null && actors.getRoleActors() != null) {
+                                for (RoleActor actor : actors.getRoleActors()) {
+                                    if (actor == null) {
+                                        continue;
+                                    }
+                                    Set<ApplicationUser> actorUsers = actor.getUsers();
+                                    // Éviter de parcourir un groupe annuaire massif de plusieurs milliers de personnes sans filtre
+                                    if (actorUsers != null && (actorUsers.size() <= 80 || !q.isEmpty())) {
+                                        for (ApplicationUser u : actorUsers) {
+                                            addCandidate(candidates, u, role.getName(), issue, currentUser, pm, avatarService, q);
+                                            if (candidates.size() >= MAX_USER_RESULTS) {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 3. Utilisateurs assignables / mentionnables sur le ticket via UserSearchService
+        UserSearchService uss = ComponentAccessor.getComponent(UserSearchService.class);
+        if (uss != null && candidates.size() < MAX_USER_RESULTS) {
+            try {
+                UserSearchIssueContext ctx = UserSearchIssueContext.create(issue);
+                List<ApplicationUser> assignable = uss.findTopAssignableUsers(q, ctx, MAX_USER_RESULTS);
+                if (assignable != null) {
+                    for (ApplicationUser u : assignable) {
+                        addCandidate(candidates, u, "Projet", issue, currentUser, pm, avatarService, q);
+                        if (candidates.size() >= MAX_USER_RESULTS) {
+                            break;
+                        }
+                    }
+                }
+                if (candidates.size() < MAX_USER_RESULTS) {
+                    List<ApplicationUser> mentionable = uss.findTopMentionableUsers(q, ctx, MAX_USER_RESULTS);
+                    if (mentionable != null) {
+                        for (ApplicationUser u : mentionable) {
+                            addCandidate(candidates, u, "Projet", issue, currentUser, pm, avatarService, q);
+                            if (candidates.size() >= MAX_USER_RESULTS) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 4. Si l'utilisateur tape une recherche, chercher parmi les autres utilisateurs ayant accès au ticket
+        if (uss != null && !q.isEmpty() && candidates.size() < MAX_USER_RESULTS) {
+            try {
+                UserSearchParams params = UserSearchParams.builder(30)
+                        .allowEmptyQuery(false)
+                        .includeActive(true)
+                        .includeInactive(false)
+                        .canMatchEmail(true)
+                        .build();
+                List<ApplicationUser> matched = uss.findUsers(q, params);
+                if (matched != null) {
+                    for (ApplicationUser u : matched) {
+                        addCandidate(candidates, u, "Accès au ticket", issue, currentUser, pm, avatarService, q);
+                        if (candidates.size() >= MAX_USER_RESULTS) {
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        JsonArray usersArray = new JsonArray();
+        for (JsonObject uObj : candidates.values()) {
+            usersArray.add(uObj);
+        }
+        JsonObject result = new JsonObject();
+        result.add("users", usersArray);
+        return ok(result);
+    }
+
+    private void addCandidate(Map<String, JsonObject> candidates,
+                              ApplicationUser candidate,
+                              String roleLabel,
+                              MutableIssue issue,
+                              ApplicationUser currentUser,
+                              PermissionManager pm,
+                              AvatarService avatarService,
+                              String queryLower) {
+        if (candidates.size() >= MAX_USER_RESULTS || candidate == null || !candidate.isActive()) {
+            return;
+        }
+        if (currentUser != null && currentUser.getKey().equals(candidate.getKey())) {
+            return;
+        }
+        if (candidates.containsKey(candidate.getKey())) {
+            return;
+        }
+        if (!matchesUserQuery(candidate, queryLower)) {
+            return;
+        }
+        // Contrôle strict de la sécurité du ticket (permission projet + niveau de sécurité du ticket)
+        if (!pm.hasPermission(ProjectPermissions.BROWSE_PROJECTS, issue, candidate)) {
+            return;
+        }
+
+        JsonObject obj = new JsonObject();
+        obj.addProperty("name", candidate.getName());
+        obj.addProperty("displayName", candidate.getDisplayName() != null ? candidate.getDisplayName() : candidate.getName());
+        obj.addProperty("role", roleLabel != null ? roleLabel : "");
+        try {
+            if (avatarService != null) {
+                URI uri = avatarService.getAvatarURL(currentUser, candidate, Avatar.Size.SMALL);
+                if (uri != null) {
+                    obj.addProperty("avatarUrl", uri.toString());
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        candidates.put(candidate.getKey(), obj);
+    }
+
+    private boolean matchesUserQuery(ApplicationUser user, String q) {
+        if (q == null || q.isEmpty()) {
+            return true;
+        }
+        String display = user.getDisplayName() != null ? user.getDisplayName().toLowerCase() : "";
+        String name = user.getName() != null ? user.getName().toLowerCase() : "";
+        String email = user.getEmailAddress() != null ? user.getEmailAddress().toLowerCase() : "";
+        return display.contains(q) || name.contains(q) || email.contains(q);
     }
 
     @POST
@@ -166,6 +412,13 @@ public class ClarificationRestResource {
         JsonObject result = new JsonObject();
         result.add("config", gson.toJsonTree(config));
 
+        // Assurer l'existence du champ personnalisé pour Time to SLA dès l'ouverture des paramètres
+        CustomField slaField = ClarificationServiceImpl.ensureSlaCustomField();
+        result.addProperty("slaFieldName", ClarificationServiceImpl.SLA_FIELD_NAME);
+        if (slaField != null) {
+            result.addProperty("slaFieldId", slaField.getId());
+        }
+
         JsonArray issueTypes = new JsonArray();
         Collection<IssueType> projectIssueTypes = project.getIssueTypes();
         if (projectIssueTypes != null) {
@@ -199,6 +452,9 @@ public class ClarificationRestResource {
         try {
             ProjectConfig config = gson.fromJson(body == null || body.isEmpty() ? "{}" : body, ProjectConfig.class);
             projectConfigService.saveConfig(project.getKey(), config);
+            if (config.isPauseSla()) {
+                ClarificationServiceImpl.ensureSlaCustomField();
+            }
             JsonObject res = new JsonObject();
             res.addProperty("success", true);
             return ok(res);

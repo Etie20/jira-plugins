@@ -1,10 +1,24 @@
 package com.socgen.jira.plugins.clarification.impl;
 
+import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.event.type.EventDispatchOption;
+import com.atlassian.jira.issue.CustomFieldManager;
 import com.atlassian.jira.issue.IssueManager;
+import com.atlassian.jira.issue.ModifiedValue;
 import com.atlassian.jira.issue.MutableIssue;
 import com.atlassian.jira.issue.comments.CommentManager;
+import com.atlassian.jira.issue.context.GlobalIssueContext;
+import com.atlassian.jira.issue.context.JiraContextNode;
+import com.atlassian.jira.issue.customfields.CustomFieldSearcher;
+import com.atlassian.jira.issue.customfields.CustomFieldType;
+import com.atlassian.jira.issue.customfields.manager.OptionsManager;
+import com.atlassian.jira.issue.customfields.option.Option;
+import com.atlassian.jira.issue.customfields.option.Options;
+import com.atlassian.jira.issue.fields.CustomField;
+import com.atlassian.jira.issue.fields.config.FieldConfig;
+import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.issue.status.Status;
+import com.atlassian.jira.issue.util.DefaultIssueChangeHolder;
 import com.atlassian.jira.permission.ProjectPermissions;
 import com.atlassian.jira.security.PermissionManager;
 import com.atlassian.jira.user.ApplicationUser;
@@ -26,9 +40,11 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,6 +58,11 @@ public class ClarificationServiceImpl implements ClarificationService {
     private static final String BACKUP_KEY_PREFIX = "clarification.issue.backup.";
     private static final String PENDING_INDEX_KEY = "clarification.pending.index";
     private static final int MAX_COMMENT_LENGTH = 5000;
+
+    public static final String SLA_FIELD_NAME = "Attente Infos Sup";
+    public static final String SLA_FIELD_DESC = "Indique si une demande d'informations supplémentaires est en attente sur ce ticket (Oui / Non) — utilisé pour mettre en pause les SLA (Time to SLA).";
+    public static final String SLA_VALUE_PENDING = "Oui";
+    public static final String SLA_VALUE_NONE = "Non";
 
     private final PluginSettingsFactory pluginSettingsFactory;
     private final IssueManager issueManager;
@@ -271,7 +292,7 @@ public class ClarificationServiceImpl implements ClarificationService {
             history.addEntry(entry);
             saveHistory(key, history);
 
-            assign(issue, recipient, requester);
+            updateIssueAssigneeAndSla(issue, recipient, requester, true);
 
             StringBuilder body = new StringBuilder();
             body.append("❓ *Demande d'informations supplémentaires* adressée à [~").append(recipient.getName()).append("]\n");
@@ -317,9 +338,7 @@ public class ClarificationServiceImpl implements ClarificationService {
             saveHistory(issue.getKey(), history);
 
             ApplicationUser requester = activeUser(pending.getRequestedByUsername());
-            if (requester != null) {
-                assign(issue, requester, responder);
-            }
+            updateIssueAssigneeAndSla(issue, requester, responder, history.hasPending());
 
             StringBuilder body = new StringBuilder();
             body.append("💬 *Réponse à la demande d'informations supplémentaires*");
@@ -360,12 +379,127 @@ public class ClarificationServiceImpl implements ClarificationService {
             pending.setCancelledAt(now());
             saveHistory(issue.getKey(), history);
 
-            assign(issue, requester, requester);
+            updateIssueAssigneeAndSla(issue, requester, requester, history.hasPending());
             addComment(issue, requester, "↩️ *Demande d'informations supplémentaires annulée* par son auteur.");
 
             log.info("[CLARIFICATION] Demande annulee sur {} par {}", issue.getKey(), requester.getName());
             return pending;
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Synchronisation du champ personnalisé SLA ("Attente Infos Sup")
+    // ------------------------------------------------------------------
+
+    /**
+     * Recherche ou crée automatiquement le champ personnalisé global « Attente Infos Sup »
+     * permettant à Time to SLA de mettre en pause les SLA tant que la valeur vaut « Oui ».
+     */
+    public static CustomField ensureSlaCustomField() {
+        try {
+            CustomFieldManager cfm = ComponentAccessor.getCustomFieldManager();
+            if (cfm == null) {
+                return null;
+            }
+            Collection<CustomField> existing = cfm.getCustomFieldObjectsByName(SLA_FIELD_NAME);
+            if (existing != null && !existing.isEmpty()) {
+                return existing.iterator().next();
+            }
+            Collection<CustomField> existingIgnoreCase = cfm.getCustomFieldObjectsByNameIgnoreCase(SLA_FIELD_NAME);
+            if (existingIgnoreCase != null && !existingIgnoreCase.isEmpty()) {
+                return existingIgnoreCase.iterator().next();
+            }
+
+            CustomFieldType<?, ?> cfType = cfm.getCustomFieldType("com.atlassian.jira.plugin.system.customfieldtypes:textfield");
+            if (cfType == null) {
+                cfType = cfm.getCustomFieldType("com.atlassian.jira.plugin.system.customfieldtypes:readonlyfield");
+            }
+            if (cfType == null) {
+                return null;
+            }
+
+            CustomFieldSearcher searcher = cfm.getCustomFieldSearcher("com.atlassian.jira.plugin.system.customfieldtypes:textsearcher");
+            if (searcher == null) {
+                searcher = cfm.getDefaultSearcher(cfType);
+            }
+
+            List<JiraContextNode> contexts = Collections.singletonList(GlobalIssueContext.getInstance());
+            List<IssueType> issueTypes = Collections.singletonList((IssueType) null);
+
+            CustomField created = cfm.createCustomField(SLA_FIELD_NAME, SLA_FIELD_DESC, cfType, searcher, contexts, issueTypes);
+            log.info("[DEMANDE INFOS SUP] Champ personnalisé '{}' ({}) créé automatiquement pour Time to SLA.",
+                    SLA_FIELD_NAME, created != null ? created.getId() : "null");
+            return created;
+        } catch (Exception e) {
+            log.warn("Impossible de créer ou récupérer le champ personnalisé '" + SLA_FIELD_NAME + "'", e);
+            return null;
+        }
+    }
+
+    private void updateIssueAssigneeAndSla(MutableIssue issue, ApplicationUser targetAssignee, ApplicationUser actor, boolean hasPending) {
+        try {
+            if (targetAssignee != null) {
+                issue.setAssignee(targetAssignee);
+            }
+
+            String projectKey = issue.getProjectObject() != null ? issue.getProjectObject().getKey() : null;
+            boolean pauseSlaEnabled = projectKey == null || projectConfigService.getConfig(projectKey).isPauseSla();
+
+            CustomField slaField = null;
+            Object oldVal = null;
+            Object targetVal = null;
+
+            if (pauseSlaEnabled) {
+                slaField = ensureSlaCustomField();
+                if (slaField != null) {
+                    oldVal = issue.getCustomFieldValue(slaField);
+                    String targetStr = hasPending ? SLA_VALUE_PENDING : SLA_VALUE_NONE;
+                    targetVal = resolveCustomFieldValue(slaField, issue, targetStr);
+                    issue.setCustomFieldValue(slaField, targetVal);
+                }
+            }
+
+            issueManager.updateIssue(actor, issue, EventDispatchOption.ISSUE_UPDATED, true);
+
+            // Filet de sécurité : si le champ n'était pas dans le FieldLayout du projet,
+            // forcer l'enregistrement de la valeur afin qu'elle soit toujours à jour
+            if (slaField != null && targetVal != null) {
+                try {
+                    MutableIssue reloaded = issueManager.getIssueObject(issue.getId());
+                    Object persistedVal = reloaded != null ? reloaded.getCustomFieldValue(slaField) : null;
+                    if (persistedVal == null || !String.valueOf(persistedVal).equalsIgnoreCase(String.valueOf(targetVal))) {
+                        slaField.updateValue(null, issue, new ModifiedValue<Object>(oldVal, targetVal), new DefaultIssueChangeHolder());
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossible de mettre à jour le ticket " + issue.getKey(), e);
+        }
+    }
+
+    private Object resolveCustomFieldValue(CustomField slaField, MutableIssue issue, String targetStr) {
+        try {
+            // Si un administrateur a créé manuellement un champ de type Liste déroulante (Select List)
+            // nommé "Attente Infos Sup", on résout ou crée l'Option correspondante ("Oui" / "Non")
+            CustomFieldType<?, ?> type = slaField.getCustomFieldType();
+            if (type != null && type.getKey() != null && type.getKey().contains("select")) {
+                FieldConfig fieldConfig = slaField.getRelevantConfig(issue);
+                OptionsManager optionsManager = ComponentAccessor.getOptionsManager();
+                if (fieldConfig != null && optionsManager != null) {
+                    Options options = optionsManager.getOptions(fieldConfig);
+                    if (options != null) {
+                        Option opt = options.getOptionForValue(targetStr, null);
+                        if (opt == null) {
+                            opt = optionsManager.createOption(fieldConfig, null, Long.valueOf(options.size() + 1L), targetStr);
+                        }
+                        return opt;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return targetStr;
     }
 
     // ------------------------------------------------------------------
@@ -448,15 +582,6 @@ public class ClarificationServiceImpl implements ClarificationService {
         Status status = issue.getStatus();
         return status != null && status.getStatusCategory() != null
                 && "done".equals(status.getStatusCategory().getKey());
-    }
-
-    private void assign(MutableIssue issue, ApplicationUser target, ApplicationUser actor) {
-        try {
-            issue.setAssignee(target);
-            issueManager.updateIssue(actor, issue, EventDispatchOption.ISSUE_UPDATED, true);
-        } catch (Exception e) {
-            log.warn("Impossible de reassigner " + issue.getKey() + " a " + (target != null ? target.getName() : "personne"), e);
-        }
     }
 
     private void addComment(MutableIssue issue, ApplicationUser author, String body) {

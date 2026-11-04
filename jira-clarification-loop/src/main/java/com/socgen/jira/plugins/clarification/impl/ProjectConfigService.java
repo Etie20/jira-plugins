@@ -49,6 +49,7 @@ public class ProjectConfigService {
             if (raw instanceof String && !((String) raw).trim().isEmpty()) {
                 ProjectConfig config = gson.fromJson((String) raw, ProjectConfig.class);
                 if (config != null) {
+                    config.setPauseSla(config.isPauseSla());
                     return config;
                 }
             }
@@ -58,10 +59,11 @@ public class ProjectConfigService {
         return defaultConfig();
     }
 
-    /** Configuration par défaut : module actif, tous types de tickets, toutes transitions bloquées. */
+    /** Configuration par défaut : module actif, SLA mis en pause, tous types de tickets, toutes transitions bloquées. */
     private static ProjectConfig defaultConfig() {
         ProjectConfig config = new ProjectConfig();
         config.setEnabled(true);
+        config.setPauseSla(true);
         return config;
     }
 
@@ -72,6 +74,7 @@ public class ProjectConfigService {
         if (projectKey == null || config == null) {
             return;
         }
+        config.setPauseSla(config.isPauseSla());
         String json = gson.toJson(config);
         getSettings().put(CONFIG_PREFIX + projectKey.trim().toUpperCase(), json);
         log.info("[DEMANDE INFOS SUP] Configuration sauvegardée pour le projet {}", projectKey);

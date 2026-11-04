@@ -386,8 +386,18 @@
             return;
         }
         resetForm($d, REPLY);
-        $("#clr-reply-author").text(pending.requestedBy + " · " + pending.requestedAt);
-        $("#clr-reply-question").text(pending.question);
+        $("#clr-reply-author").text(pending.requestedBy || "-");
+        $("#clr-reply-date").text(pending.requestedAt || "");
+        $("#clr-reply-question").text(pending.question || "");
+
+        var attHtml = attachmentHtml(pending.requestAttachmentId, pending.requestAttachmentName);
+        var $attBox = $("#clr-reply-attachment");
+        if (attHtml) {
+            $attBox.html(attHtml).removeClass("clr-hidden");
+        } else {
+            $attBox.empty().addClass("clr-hidden");
+        }
+
         $("#clr-reply-hint").text("Le ticket sera réassigné à " + pending.requestedBy + " après l'envoi.");
 
         AJS.dialog2($d).show();
@@ -554,7 +564,7 @@
     }
 
     // ------------------------------------------------------------------
-    // Recherche d'utilisateurs
+    // Recherche d'utilisateurs basée sur les intervenants et la sécurité du ticket
     // ------------------------------------------------------------------
 
     function searchUsers(query) {
@@ -564,23 +574,35 @@
         var currentUser = (state.data && state.data.permissions && state.data.permissions.currentUserName) || "";
 
         state.searchXhr = $.ajax({
-            url: AJS.contextPath() + "/rest/api/2/user/picker",
-            data: { query: query, maxResults: 10, showAvatar: true },
-            dataType: "json"
+            url: api("/users"),
+            data: { q: query || "" },
+            dataType: "json",
+            cache: false
         }).done(function (data) {
             var users = (data.users || []).filter(function (u) { return !sameName(u.name, currentUser); });
             var $list = $("#clr-recipient-results").empty();
             if (!users.length) {
-                $list.append('<li class="clr-empty">Aucun utilisateur trouvé</li>');
+                $list.append('<li class="clr-empty">Aucun intervenant trouvé pour ce ticket</li>');
             }
             users.forEach(function (u, i) {
-                $("<li/>")
+                var $li = $("<li/>")
                     .addClass("clr-option" + (i === 0 ? " clr-active" : ""))
-                    .attr({ "data-name": u.name, "data-display": u.displayName })
-                    .append(u.avatarUrl ? $("<img/>").attr({ src: u.avatarUrl, alt: "" }) : null)
-                    .append($("<span/>").text(u.displayName))
-                    .append($("<span class='clr-username'/>").text(u.name))
-                    .appendTo($list);
+                    .attr({ "data-name": u.name, "data-display": u.displayName });
+
+                if (u.avatarUrl) {
+                    $li.append($("<img/>").attr({ src: u.avatarUrl, alt: "" }));
+                }
+
+                var $main = $("<div class='clr-user-main'/>")
+                    .append($("<span class='clr-user-display'/>").text(u.displayName))
+                    .append($("<span class='clr-username'/>").text("(" + u.name + ")"));
+                $li.append($main);
+
+                if (u.role) {
+                    $li.append($("<span class='clr-user-role'/>").text(u.role));
+                }
+
+                $li.appendTo($list);
             });
             $list.removeClass("clr-hidden");
         }).fail(function (xhr) {
@@ -722,16 +744,20 @@
             clearFieldError($d, "attachment");
             state.uploads[$d.is("#clr-request-dialog") ? REQUEST : REPLY] = null;
         })
+        .on("focus.clr click.clr", "#clr-recipient-search", function () {
+            // Au clic/focus dans le champ, proposer immédiatement les intervenants du ticket
+            if ($("#clr-recipient-results").hasClass("clr-hidden")) {
+                var hasSelected = !!$("#clr-recipient-value").val();
+                var query = hasSelected ? "" : $.trim($(this).val());
+                searchUsers(query);
+            }
+        })
         .on("input.clr", "#clr-recipient-search", function () {
             var query = $.trim($(this).val());
             $("#clr-recipient-value").val("");
             clearFieldError($("#clr-request-dialog"), "recipient");
             clearTimeout(state.searchTimer);
-            if (query.length < 2) {
-                $("#clr-recipient-results").addClass("clr-hidden").empty();
-                return;
-            }
-            state.searchTimer = setTimeout(function () { searchUsers(query); }, 250);
+            state.searchTimer = setTimeout(function () { searchUsers(query); }, 180);
         })
         .on("keydown.clr", "#clr-recipient-search", function (e) {
             var open = !$("#clr-recipient-results").hasClass("clr-hidden");
@@ -799,8 +825,7 @@
         }
     });
 
-    if (window.JIRA && JIRA.bind && JIRA.Events && JIRA.Events.NEW_CONTENT_ADDED) {
-        JIRA.bind(JIRA.Events.NEW_CONTENT_ADDED, function () { init(); });
+    if (window.JIRA && JIRA.Events && JIRA.Events.NEW_CONTENT_ADDED && JIRA.bind) {
+        JIRA.bind(JIRA.Events.NEW_CONTENT_ADDED, init);
     }
-
 })(AJS.$);

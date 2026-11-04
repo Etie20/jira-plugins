@@ -21,7 +21,7 @@
                 <div class="field-group">
                     <label for="clr-recipient-search">Destinataire<span class="aui-icon icon-required">obligatoire</span></label>
                     <div class="clr-picker">
-                        <input type="text" id="clr-recipient-search" class="text long-field" autocomplete="off" placeholder="Rechercher un utilisateur..." />
+                        <input type="text" id="clr-recipient-search" class="text long-field" autocomplete="off" placeholder="Choisir un intervenant du ticket ou rechercher..." />
                         <input type="hidden" id="clr-recipient-value" />
                         <ul id="clr-recipient-results" class="clr-picker-results clr-hidden"></ul>
                     </div>
@@ -51,19 +51,26 @@
     <!-- Fenêtre : réponse -->
     <section id="clr-reply-dialog" class="aui-dialog2 aui-dialog2-medium aui-layer clr-dialog" role="dialog" aria-hidden="true">
         <header class="aui-dialog2-header">
-            <h2 class="aui-dialog2-header-main">Répondre</h2>
+            <h2 class="aui-dialog2-header-main">Répondre à la demande</h2>
             <button type="button" class="aui-close-button clr-dialog-close" aria-label="Fermer"></button>
         </header>
         <div class="aui-dialog2-content">
             <div class="aui-message aui-message-error clr-form-error clr-hidden"><p></p></div>
             <div class="clr-quote">
-                <div class="clr-quote-author" id="clr-reply-author"></div>
-                <div id="clr-reply-question"></div>
+                <div class="clr-quote-header">
+                    <div class="clr-quote-user">
+                        <span class="clr-quote-badge">Demande de</span>
+                        <strong class="clr-quote-author" id="clr-reply-author"></strong>
+                    </div>
+                    <span class="clr-quote-date" id="clr-reply-date"></span>
+                </div>
+                <div class="clr-quote-body" id="clr-reply-question"></div>
+                <div class="clr-quote-attachment clr-hidden" id="clr-reply-attachment"></div>
             </div>
             <form class="aui clr-form" novalidate="novalidate">
                 <div class="field-group">
-                    <label for="clr-reply-comment">Commentaire<span class="aui-icon icon-required">obligatoire</span></label>
-                    <textarea id="clr-reply-comment" class="textarea long-field" rows="4"></textarea>
+                    <label for="clr-reply-comment">Votre réponse<span class="aui-icon icon-required">obligatoire</span></label>
+                    <textarea id="clr-reply-comment" class="textarea long-field" rows="4" placeholder="Saisissez les informations demandées..."></textarea>
                     <div class="error clr-field-error" data-error-for="comment"></div>
                 </div>
                 <div class="field-group">

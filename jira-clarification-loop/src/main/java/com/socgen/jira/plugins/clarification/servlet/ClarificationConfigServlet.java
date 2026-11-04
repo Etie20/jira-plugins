@@ -1,6 +1,7 @@
 package com.socgen.jira.plugins.clarification.servlet;
 
 import com.atlassian.jira.component.ComponentAccessor;
+import com.atlassian.jira.issue.fields.CustomField;
 import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.permission.GlobalPermissionKey;
 import com.atlassian.jira.permission.ProjectPermissions;
@@ -12,6 +13,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.socgen.jira.plugins.clarification.api.ProjectConfig;
+import com.socgen.jira.plugins.clarification.impl.ClarificationServiceImpl;
 import com.socgen.jira.plugins.clarification.impl.ProjectConfigService;
 import com.socgen.jira.plugins.clarification.rest.ClarificationRestResource;
 import org.slf4j.Logger;
@@ -76,6 +78,12 @@ public class ClarificationConfigServlet extends HttpServlet {
         JsonObject result = new JsonObject();
         result.add("config", gson.toJsonTree(config));
 
+        CustomField slaField = ClarificationServiceImpl.ensureSlaCustomField();
+        result.addProperty("slaFieldName", ClarificationServiceImpl.SLA_FIELD_NAME);
+        if (slaField != null) {
+            result.addProperty("slaFieldId", slaField.getId());
+        }
+
         JsonArray issueTypes = new JsonArray();
         Collection<IssueType> projectIssueTypes = project.getIssueTypes();
         if (projectIssueTypes != null) {
@@ -112,6 +120,9 @@ public class ClarificationConfigServlet extends HttpServlet {
         try {
             ProjectConfig config = gson.fromJson(sb.toString(), ProjectConfig.class);
             getConfigService().saveConfig(projectKey, config);
+            if (config.isPauseSla()) {
+                ClarificationServiceImpl.ensureSlaCustomField();
+            }
 
             resp.setContentType("application/json;charset=UTF-8");
             resp.getWriter().write("{\"success\":true}");

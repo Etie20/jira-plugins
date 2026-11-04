@@ -10,7 +10,7 @@
 <body>
     <div id="clr-config-panel" data-project-key="$projectKey">
         <h2>Demande d'informations supplémentaires</h2>
-        <p class="clr-config-desc">Configurez la demande d'infos sup pour ce projet : activation, types de tickets concernés et transitions bloquées pendant l'attente d'une réponse.</p>
+        <p class="clr-config-desc">Configurez la demande d'infos sup pour ce projet : activation, pause des SLA (Time to SLA), types de tickets concernés et transitions bloquées pendant l'attente d'une réponse.</p>
 
         <div id="clr-config-loading" class="aui-message aui-message-info">
             <p>Chargement de la configuration...</p>
@@ -21,31 +21,75 @@
         </div>
 
         <form id="clr-config-form" class="aui" style="display:none;">
-            <!-- Activation -->
-            <fieldset class="group">
-                <legend><span>Activation</span></legend>
-                <div class="checkbox">
-                    <input type="checkbox" class="checkbox" id="clr-enabled" />
-                    <label for="clr-enabled">Activer la demande d'infos sup sur ce projet</label>
+            <!-- Activation & SLA -->
+            <div class="clr-config-section">
+                <div class="clr-config-section-header">
+                    <h3>Activation et intégration SLA</h3>
                 </div>
-                <div class="description">Si décoché, le panneau « Demande infos sup » n'apparaît plus sur les tickets de ce projet.</div>
-            </fieldset>
+                <div class="clr-config-section-body">
+                    <div class="clr-toggle-row">
+                        <input type="checkbox" class="checkbox" id="clr-enabled" />
+                        <div class="clr-toggle-text">
+                            <label for="clr-enabled"><strong>Activer la demande d'infos sup sur ce projet</strong></label>
+                            <div class="description">Si décoché, le panneau « Demande infos sup » n'apparaît plus sur les tickets de ce projet.</div>
+                        </div>
+                    </div>
+
+                    <div class="clr-toggle-row clr-toggle-sla">
+                        <input type="checkbox" class="checkbox" id="clr-pause-sla" />
+                        <div class="clr-toggle-text">
+                            <label for="clr-pause-sla"><strong>Synchroniser le champ SLA pour mettre en pause Time to SLA</strong></label>
+                            <div class="description">
+                                Met automatiquement le champ personnalisé <code id="clr-sla-field-name">Attente Infos Sup</code> à <code>Oui</code> lorsqu'une demande est en attente, puis à <code>Non</code> dès la réponse ou l'annulation.
+                                <span id="clr-sla-field-info" class="clr-sla-badge"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Types de tickets -->
-            <fieldset class="group">
-                <legend><span>Types de tickets concernés</span></legend>
-                <div id="clr-issue-types-list"></div>
-                <div class="description">Tout cocher = tous les types de tickets.</div>
-            </fieldset>
+            <div class="clr-config-section">
+                <div class="clr-config-section-header">
+                    <div>
+                        <h3>Types de tickets concernés</h3>
+                        <span class="clr-section-sub">Sélectionnez les types de tickets sur lesquels le module est actif (tout cocher = tous les types).</span>
+                    </div>
+                    <span id="clr-it-counter" class="clr-counter-badge"></span>
+                </div>
+                <div class="clr-selector-toolbar">
+                    <input type="text" id="clr-it-search" class="text clr-filter-input" placeholder="Filtrer les types de tickets..." autocomplete="off" />
+                    <div class="clr-toolbar-actions">
+                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-it-cb">Tout cocher</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-it-cb">Tout décocher</button>
+                    </div>
+                </div>
+                <div id="clr-issue-types-list" class="clr-grid-box"></div>
+            </div>
 
             <!-- Transitions bloquées -->
-            <fieldset class="group">
-                <legend><span>Transitions bloquées</span></legend>
-                <div id="clr-transitions-list"></div>
-                <div class="description">Transitions du workflow bloquées tant qu'une demande d'infos sup attend une réponse. Tout cocher = toutes les transitions.</div>
-            </fieldset>
+            <div class="clr-config-section">
+                <div class="clr-config-section-header">
+                    <div>
+                        <h3>Transitions du workflow bloquées</h3>
+                        <span class="clr-section-sub">Transitions verrouillées tant qu'une demande d'infos sup attend une réponse (tout cocher = toutes les transitions).</span>
+                    </div>
+                    <span id="clr-tr-counter" class="clr-counter-badge"></span>
+                </div>
+                <div class="clr-selector-toolbar">
+                    <input type="text" id="clr-tr-search" class="text clr-filter-input" placeholder="Rechercher une transition..." autocomplete="off" />
+                    <select id="clr-tr-wf-filter" class="select clr-wf-select" style="display:none;">
+                        <option value="">Tous les workflows</option>
+                    </select>
+                    <div class="clr-toolbar-actions">
+                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-tr-cb">Tout cocher</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-tr-cb">Tout décocher</button>
+                    </div>
+                </div>
+                <div id="clr-transitions-list" class="clr-grid-box clr-grid-box-transitions"></div>
+            </div>
 
-            <div class="buttons-container">
+            <div class="buttons-container clr-footer-bar">
                 <div class="buttons">
                     <button type="submit" id="clr-save-btn" class="aui-button aui-button-primary">Enregistrer</button>
                     <span id="clr-save-status" class="clr-save-status"></span>
@@ -55,10 +99,189 @@
     </div>
 
     <style>
-        #clr-config-panel { max-width: 800px; }
-        #clr-config-panel .clr-config-desc { color: #6b778c; margin-bottom: 20px; }
-        #clr-config-panel .clr-save-status { margin-left: 10px; font-weight: bold; }
-        #clr-config-panel .clr-wf-hint { color: #6b778c; font-size: 12px; margin-left: 6px; }
+        #clr-config-panel { max-width: 960px; padding-bottom: 32px; }
+        #clr-config-panel .clr-config-desc { color: #5e6c84; margin-bottom: 20px; font-size: 14px; }
+        #clr-config-panel .clr-config-section {
+            background: #ffffff;
+            border: 1px solid #dfe1e6;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        #clr-config-panel .clr-config-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #f4f5f7;
+            border-bottom: 1px solid #dfe1e6;
+        }
+        #clr-config-panel .clr-config-section-header h3 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: #172b4d;
+        }
+        #clr-config-panel .clr-section-sub {
+            display: block;
+            font-size: 12px;
+            color: #5e6c84;
+            margin-top: 2px;
+        }
+        #clr-config-panel .clr-config-section-body {
+            padding: 14px 16px;
+        }
+        #clr-config-panel .clr-toggle-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        #clr-config-panel .clr-toggle-row input.checkbox {
+            margin-top: 3px;
+        }
+        #clr-config-panel .clr-toggle-sla {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #ebecf0;
+        }
+        #clr-config-panel .clr-toggle-text label {
+            color: #172b4d;
+            cursor: pointer;
+        }
+        #clr-config-panel .clr-toggle-text .description {
+            color: #5e6c84;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+        #clr-config-panel .clr-toggle-text code {
+            background: #ebecf0;
+            color: #172b4d;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        #clr-config-panel .clr-sla-badge {
+            display: inline-block;
+            margin-left: 6px;
+            color: #006644;
+            background: #e3fcef;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        #clr-config-panel .clr-counter-badge {
+            background: #dfe1e6;
+            color: #253858;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+        #clr-config-panel .clr-selector-toolbar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #fafbfc;
+            border-bottom: 1px solid #ebecf0;
+        }
+        #clr-config-panel .clr-filter-input {
+            flex: 1 1 220px;
+            max-width: 320px !important;
+            height: 30px;
+            padding: 4px 10px;
+            font-size: 13px;
+            border: 1px solid #dfe1e6;
+            border-radius: 3px;
+        }
+        #clr-config-panel .clr-wf-select {
+            max-width: 240px !important;
+            height: 30px;
+            font-size: 13px;
+            border: 1px solid #dfe1e6;
+            border-radius: 3px;
+            padding: 2px 8px;
+        }
+        #clr-config-panel .clr-toolbar-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 6px;
+        }
+        #clr-config-panel .clr-grid-box {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 8px;
+            padding: 12px 16px;
+            max-height: 220px;
+            overflow-y: auto;
+            background: #ffffff;
+        }
+        #clr-config-panel .clr-grid-box-transitions {
+            max-height: 320px;
+        }
+        #clr-config-panel .clr-check-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border: 1px solid #ebecf0;
+            border-radius: 4px;
+            background: #fafbfc;
+            cursor: pointer;
+            transition: background-color 0.1s ease, border-color 0.1s ease;
+            margin: 0;
+            min-width: 0;
+        }
+        #clr-config-panel .clr-check-card:hover {
+            background: #f4f5f7;
+            border-color: #c1c7d0;
+        }
+        #clr-config-panel .clr-check-card.clr-card-checked {
+            background: #f4f5f7;
+            border-color: #b3bac5;
+        }
+        #clr-config-panel .clr-check-card input[type="checkbox"] {
+            margin: 0;
+            flex-shrink: 0;
+        }
+        #clr-config-panel .clr-card-title {
+            flex: 1 1 auto;
+            font-size: 13px;
+            color: #172b4d;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #clr-config-panel .clr-wf-pill {
+            flex-shrink: 0;
+            font-size: 11px;
+            color: #5e6c84;
+            background: #ebecf0;
+            padding: 1px 6px;
+            border-radius: 3px;
+            max-width: 95px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #clr-config-panel .clr-empty-msg {
+            grid-column: 1 / -1;
+            color: #6b778c;
+            font-size: 13px;
+            padding: 8px 0;
+        }
+        #clr-config-panel .clr-footer-bar {
+            margin-top: 8px;
+            padding: 0;
+        }
+        #clr-config-panel .clr-save-status {
+            margin-left: 12px;
+            font-weight: 600;
+        }
     </style>
 
     <script type="text/javascript">
@@ -72,23 +295,88 @@
             var projectKey = $("#clr-config-panel").data("project-key");
             var restUrl = AJS.contextPath() + "/rest/clarification/1.0/issue/config/" + encodeURIComponent(projectKey);
 
-            function checkboxList(box, items, cssClass, valueKey, selected) {
+            function updateCounter(cssClass, $counter) {
+                var $all = $("." + cssClass);
+                var total = $all.length;
+                var checked = $all.filter(":checked").length;
+                if (total === 0) {
+                    $counter.text("0 élément");
+                } else if (checked === total) {
+                    $counter.text("Tous sélectionnés (" + total + ")");
+                } else {
+                    $counter.text(checked + " / " + total + " sélectionné(s)");
+                }
+            }
+
+            function renderGrid(box, items, cssClass, valueKey, selected, $counter) {
                 box.empty();
                 if (!items.length) {
-                    box.append('<div class="description">Aucun élément trouvé.</div>');
+                    box.append('<div class="clr-empty-msg">Aucun élément trouvé.</div>');
+                    updateCounter(cssClass, $counter);
                     return;
                 }
                 items.forEach(function (item, i) {
                     var value = String(item[valueKey]);
                     var id = cssClass + "-" + i;
-                    var checked = (selected.length === 0 || selected.indexOf(value) >= 0) ? ' checked="checked"' : "";
-                    var wfHint = item.workflows ? '<span class="clr-wf-hint">(' + escapeHtml(item.workflows) + ')</span>' : "";
+                    var isChecked = (selected.length === 0 || selected.indexOf(value) >= 0);
+                    var checkedAttr = isChecked ? ' checked="checked"' : "";
+                    var cardClass = "clr-check-card" + (isChecked ? " clr-card-checked" : "");
+                    var wfRaw = item.workflows || "";
+                    var wfPill = "";
+                    var tooltip = item.name;
+                    if (wfRaw) {
+                        var wfList = wfRaw.split(", ");
+                        var pillText = wfList.length > 1 ? (wfList.length + " workflows") : wfList[0];
+                        tooltip = item.name + " — Workflow(s) : " + wfRaw;
+                        wfPill = '<span class="clr-wf-pill" title="' + escapeHtml("Workflow(s) : " + wfRaw) + '">' + escapeHtml(pillText) + '</span>';
+                    }
                     box.append(
-                        '<div class="checkbox">' +
-                        '<input type="checkbox" class="checkbox ' + cssClass + '" id="' + id + '" value="' + escapeHtml(value) + '"' + checked + ' />' +
-                        '<label for="' + id + '">' + escapeHtml(item.name) + wfHint + '</label>' +
-                        '</div>'
+                        '<label class="' + cardClass + '" for="' + id + '" data-name="' + escapeHtml(String(item.name).toLowerCase()) + '" data-wfs="' + escapeHtml(wfRaw.toLowerCase()) + '" title="' + escapeHtml(tooltip) + '">' +
+                        '<input type="checkbox" class="checkbox ' + cssClass + '" id="' + id + '" value="' + escapeHtml(value) + '"' + checkedAttr + ' />' +
+                        '<span class="clr-card-title">' + escapeHtml(item.name) + '</span>' +
+                        wfPill +
+                        '</label>'
                     );
+                });
+                updateCounter(cssClass, $counter);
+            }
+
+            function populateWorkflowFilter(transitions) {
+                var $wfSelect = $("#clr-tr-wf-filter");
+                var wfSet = {};
+                var wfOrder = [];
+                (transitions || []).forEach(function (t) {
+                    if (t.workflows) {
+                        t.workflows.split(", ").forEach(function (w) {
+                            var clean = $.trim(w);
+                            if (clean && !wfSet[clean]) {
+                                wfSet[clean] = true;
+                                wfOrder.push(clean);
+                            }
+                        });
+                    }
+                });
+                if (wfOrder.length > 1) {
+                    $wfSelect.empty().append('<option value="">Tous les workflows (' + wfOrder.length + ')</option>');
+                    wfOrder.forEach(function (w) {
+                        $wfSelect.append('<option value="' + escapeHtml(w.toLowerCase()) + '">' + escapeHtml(w) + '</option>');
+                    });
+                    $wfSelect.show();
+                } else {
+                    $wfSelect.hide();
+                }
+            }
+
+            function filterCards($box, query, wfFilter) {
+                var q = $.trim(query || "").toLowerCase();
+                var wf = $.trim(wfFilter || "").toLowerCase();
+                $box.find(".clr-check-card").each(function () {
+                    var $card = $(this);
+                    var name = String($card.attr("data-name") || "");
+                    var wfs = String($card.attr("data-wfs") || "");
+                    var matchName = !q || name.indexOf(q) >= 0;
+                    var matchWf = !wf || wfs.split(", ").indexOf(wf) >= 0;
+                    $card.toggle(matchName && matchWf);
                 });
             }
 
@@ -104,9 +392,25 @@
             $.ajax({ url: restUrl, type: "GET", dataType: "json", cache: false })
                 .done(function (data) {
                     var config = data.config || {};
-                    $("#clr-enabled").prop("checked", !!config.enabled);
-                    checkboxList($("#clr-issue-types-list"), data.issueTypes || [], "clr-it-cb", "id", config.enabledIssueTypeIds || []);
-                    checkboxList($("#clr-transitions-list"), data.transitions || [], "clr-tr-cb", "name", config.blockedTransitionNames || []);
+                    $("#clr-enabled").prop("checked", config.enabled !== false);
+                    $("#clr-pause-sla").prop("checked", config.pauseSla !== false);
+
+                    if (data.slaFieldName) {
+                        $("#clr-sla-field-name").text(data.slaFieldName);
+                    }
+                    if (data.slaFieldId) {
+                        $("#clr-sla-field-info").text("Champ prêt : " + data.slaFieldId).show();
+                    } else {
+                        $("#clr-sla-field-info").hide();
+                    }
+
+                    var issueTypes = data.issueTypes || [];
+                    var transitions = data.transitions || [];
+
+                    populateWorkflowFilter(transitions);
+                    renderGrid($("#clr-issue-types-list"), issueTypes, "clr-it-cb", "id", config.enabledIssueTypeIds || [], $("#clr-it-counter"));
+                    renderGrid($("#clr-transitions-list"), transitions, "clr-tr-cb", "name", config.blockedTransitionNames || [], $("#clr-tr-counter"));
+
                     $("#clr-config-loading").hide();
                     $("#clr-config-form").show();
                 })
@@ -118,6 +422,37 @@
                     $("#clr-config-error").show();
                 });
 
+            $(document)
+                .on("change", ".clr-it-cb", function () {
+                    $(this).closest(".clr-check-card").toggleClass("clr-card-checked", this.checked);
+                    updateCounter("clr-it-cb", $("#clr-it-counter"));
+                })
+                .on("change", ".clr-tr-cb", function () {
+                    $(this).closest(".clr-check-card").toggleClass("clr-card-checked", this.checked);
+                    updateCounter("clr-tr-cb", $("#clr-tr-counter"));
+                })
+                .on("input", "#clr-it-search", function () {
+                    filterCards($("#clr-issue-types-list"), $(this).val(), "");
+                })
+                .on("input", "#clr-tr-search", function () {
+                    filterCards($("#clr-transitions-list"), $(this).val(), $("#clr-tr-wf-filter").val());
+                })
+                .on("change", "#clr-tr-wf-filter", function () {
+                    filterCards($("#clr-transitions-list"), $("#clr-tr-search").val(), $(this).val());
+                })
+                .on("click", ".clr-select-all, .clr-select-none", function () {
+                    var check = $(this).hasClass("clr-select-all");
+                    var targetClass = $(this).data("target");
+                    $("." + targetClass).each(function () {
+                        var $card = $(this).closest(".clr-check-card");
+                        if ($card.is(":visible")) {
+                            this.checked = check;
+                            $card.toggleClass("clr-card-checked", check);
+                        }
+                    });
+                    updateCounter(targetClass, targetClass === "clr-it-cb" ? $("#clr-it-counter") : $("#clr-tr-counter"));
+                });
+
             $("#clr-config-form").on("submit", function (e) {
                 e.preventDefault();
                 var saveBtn = $("#clr-save-btn").prop("disabled", true).text("Enregistrement...");
@@ -125,6 +460,7 @@
 
                 var payload = {
                     enabled: $("#clr-enabled").prop("checked"),
+                    pauseSla: $("#clr-pause-sla").prop("checked"),
                     enabledIssueTypeIds: collect("clr-it-cb"),
                     blockedTransitionNames: collect("clr-tr-cb")
                 };
