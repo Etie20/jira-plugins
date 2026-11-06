@@ -25,14 +25,11 @@ import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.user.util.UserManager;
 import com.atlassian.jira.workflow.JiraWorkflow;
 import com.atlassian.jira.workflow.WorkflowManager;
-import com.atlassian.jira.workflow.WorkflowUtil;
 import com.atlassian.plugin.spring.scanner.annotation.export.ExportAsService;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import com.google.gson.Gson;
-import com.opensymphony.workflow.loader.ActionDescriptor;
-import com.opensymphony.workflow.loader.ResultDescriptor;
 import com.opensymphony.workflow.loader.StepDescriptor;
 import com.opensymphony.workflow.loader.WorkflowDescriptor;
 import com.socgen.jira.plugins.clarification.api.ClarificationEntry;
@@ -47,15 +44,11 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -229,10 +222,10 @@ public class ClarificationServiceImpl implements ClarificationService {
             return perms;
         }
 
-        // Récupérer les transitions bloquées pour les transmettre au front
-        if (projectKey != null) {
-            ProjectConfig config = projectConfigService.getConfig(projectKey);
+        ProjectConfig config = projectKey != null ? projectConfigService.getConfig(projectKey) : null;
+        if (config != null) {
             perms.setBlockedTransitionNames(config.getBlockedTransitionNames());
+            perms.setTransitionsLocked(isCurrentStatusFrozenWhenPending(issue, config));
         }
 
         if (user == null) {
@@ -247,11 +240,9 @@ public class ClarificationServiceImpl implements ClarificationService {
             return perms;
         }
 
-        String disallowedTransition = findDisallowedRequestTransition(issue);
-        if (isClosed(issue)) {
-            perms.setInfo("Ticket clôturé : aucune demande possible.");
-        } else if (disallowedTransition != null) {
-            perms.setInfo("Aucune demande d'infos sup possible sur cette transition (" + disallowedTransition + ").");
+        String disallowedReason = getDisallowedStatusReason(issue, config);
+        if (disallowedReason != null) {
+            perms.setInfo(disallowedReason);
         } else if (assignee == null) {
             perms.setInfo("Le ticket doit être assigné pour faire une demande d'infos sup.");
         } else if (!sameUser(user, assignee)) {
@@ -284,7 +275,7 @@ public class ClarificationServiceImpl implements ClarificationService {
             ApplicationUser recipient = resolveRecipient(issue, recipientUsername, requester);
 
             String key = issue.getKey();
-            String originStatus = issue.getStatus() != null ? issue.getStatus().getName() : "";
+            String originStatus = getCurrentStatusDisplayName(issue);
 
             ClarificationEntry entry = new ClarificationEntry(
                     UUID.randomUUID().toString(),
@@ -310,7 +301,7 @@ public class ClarificationServiceImpl implements ClarificationService {
 
             StringBuilder body = new StringBuilder();
             body.append("❓ *Demande d'informations supplémentaires* adressée à [~").append(recipient.getName()).append("]\n");
-            body.append("_Étape : ").append(originStatus).append("_\n\n");
+            body.append("_État : ").append(originStatus).append("_\n\n");
             body.append(entry.getQuestion());
             appendAttachment(body, entry.getRequestAttachmentName());
             addComment(issue, requester, body.toString());
@@ -475,8 +466,6 @@ public class ClarificationServiceImpl implements ClarificationService {
 
             issueManager.updateIssue(actor, issue, EventDispatchOption.ISSUE_UPDATED, true);
 
-            // Filet de sécurité : si le champ n'était pas dans le FieldLayout du projet,
-            // forcer l'enregistrement de la valeur afin qu'elle soit toujours à jour
             if (slaField != null && targetVal != null) {
                 try {
                     MutableIssue reloaded = issueManager.getIssueObject(issue.getId());
@@ -494,8 +483,6 @@ public class ClarificationServiceImpl implements ClarificationService {
 
     private Object resolveCustomFieldValue(CustomField slaField, MutableIssue issue, String targetStr) {
         try {
-            // Si un administrateur a créé manuellement un champ de type Liste déroulante (Select List)
-            // nommé "Attente Infos Sup", on résout ou crée l'Option correspondante ("Oui" / "Non")
             CustomFieldType<?, ?> type = slaField.getCustomFieldType();
             if (type != null && type.getKey() != null && type.getKey().contains("select")) {
                 FieldConfig fieldConfig = slaField.getRelevantConfig(issue);
@@ -517,211 +504,129 @@ public class ClarificationServiceImpl implements ClarificationService {
     }
 
     // ------------------------------------------------------------------
-    // Règles métier
+    // Règles métier basées sur l'État / Étape du ticket
     // ------------------------------------------------------------------
 
     /**
-     * Vérifie si la transition / étape courante du ticket fait partie des transitions
-     * sur lesquelles la création d'une demande d'infos sup est interdite dans les paramètres du projet.
-     * Retourne le nom de la transition interdite le cas échéant, ou {@code null} si la demande est autorisée.
+     * Vérifie si l'état courant du ticket fige le ticket (verrouille l'état et les transitions)
+     * lorsqu'une demande d'infos sup est en attente.
+     * Par défaut, tous les états figent le ticket sauf ceux décochés dans {@code unblockedStatusNames}.
      */
-    private String findDisallowedRequestTransition(MutableIssue issue) {
-        try {
-            String projectKey = issue.getProjectObject() != null ? issue.getProjectObject().getKey() : null;
-            if (projectKey == null) {
-                return null;
+    private boolean isCurrentStatusFrozenWhenPending(MutableIssue issue, ProjectConfig config) {
+        if (config == null || config.getUnblockedStatusNames().isEmpty()) {
+            return true;
+        }
+        Set<String> candidateNames = getCurrentStatusAndStepNamesLower(issue);
+        for (String unblocked : config.getUnblockedStatusNames()) {
+            if (unblocked != null && candidateNames.contains(unblocked.trim().toLowerCase())) {
+                return false;
             }
-            ProjectConfig config = projectConfigService.getConfig(projectKey);
-            List<String> disallowedList = config.getDisallowedRequestTransitionNames();
-            if (disallowedList == null || disallowedList.isEmpty()) {
-                return null;
-            }
+        }
+        return true;
+    }
 
-            Map<String, String> originalByLower = new LinkedHashMap<String, String>();
-            for (String name : disallowedList) {
-                if (name != null && !name.trim().isEmpty()) {
-                    originalByLower.put(name.trim().toLowerCase(), name.trim());
-                }
-            }
-            if (originalByLower.isEmpty()) {
-                return null;
-            }
+    /**
+     * Vérifie si l'état courant du ticket permet de créer une demande d'infos sup.
+     * - Par défaut ({@code requestStatusesCustomized == false}) : tous les états finaux (catégorie Jira "done"
+     *   ou étape terminale du workflow sans transition sortante) sont interdits, et les autres sont autorisés.
+     * - Si l'administrateur a personnalisé la sélection ({@code requestStatusesCustomized == true}) :
+     *   seuls les états cochés dans {@code allowedRequestStatusNames} autorisent la demande.
+     *
+     * @return {@code null} si la demande est autorisée, ou le message explicatif si elle est interdite.
+     */
+    private String getDisallowedStatusReason(MutableIssue issue, ProjectConfig config) {
+        String displayStatus = getCurrentStatusDisplayName(issue);
 
-            Status status = issue.getStatus();
-            if (status != null) {
-                String stName = status.getName() != null ? status.getName().trim().toLowerCase() : "";
-                String stTrans = status.getNameTranslation() != null ? status.getNameTranslation().trim().toLowerCase() : "";
-                if (originalByLower.containsKey(stTrans)) {
-                    return originalByLower.get(stTrans);
-                }
-                if (originalByLower.containsKey(stName)) {
-                    return originalByLower.get(stName);
-                }
-            }
-
-            WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
-            JiraWorkflow wf = wfm != null ? wfm.getWorkflow(issue) : null;
-            if (wf == null || status == null) {
-                return null;
-            }
-
-            StepDescriptor currentStep = wf.getLinkedStep(status);
-            if (currentStep == null) {
-                return null;
-            }
-
-            if (currentStep.getName() != null) {
-                String stepLower = currentStep.getName().trim().toLowerCase();
-                if (originalByLower.containsKey(stepLower)) {
-                    return originalByLower.get(stepLower);
-                }
-            }
-
-            WorkflowDescriptor wd = wf.getDescriptor();
-            if (wd == null) {
-                return null;
-            }
-
-            // 1. Vérifier les transitions globales (ex: workflows simplifiés) qui mènent à l'étape courante
-            if (wd.getGlobalActions() != null) {
-                for (Object o : wd.getGlobalActions()) {
-                    if (o instanceof ActionDescriptor) {
-                        ActionDescriptor action = (ActionDescriptor) o;
-                        ResultDescriptor res = action.getUnconditionalResult();
-                        if (res != null && res.getStep() == currentStep.getId()) {
-                            String actName = getActionDisplayName(action);
-                            if (actName != null && originalByLower.containsKey(actName.toLowerCase())) {
-                                return originalByLower.get(actName.toLowerCase());
-                            }
-                        }
+        if (config != null && config.isRequestStatusesCustomized()) {
+            Set<String> currentNamesLower = getCurrentStatusAndStepNamesLower(issue);
+            List<String> allowed = config.getAllowedRequestStatusNames();
+            boolean match = false;
+            if (allowed != null) {
+                for (String a : allowed) {
+                    if (a != null && currentNamesLower.contains(a.trim().toLowerCase())) {
+                        match = true;
+                        break;
                     }
                 }
             }
-
-            // 2. Compter sur combien d'étapes chaque transition d'étape est présente (pour distinguer
-            //    une transition propre à l'étape courante d'une transition transversale d'annulation/clôture)
-            Map<String, Integer> stepCountByActionLower = new HashMap<String, Integer>();
-            if (wd.getSteps() != null) {
-                for (Object sObj : wd.getSteps()) {
-                    if (sObj instanceof StepDescriptor) {
-                        StepDescriptor s = (StepDescriptor) sObj;
-                        if (s.getActions() != null) {
-                            Set<String> seenInStep = new LinkedHashSet<String>();
-                            for (Object aObj : s.getActions()) {
-                                if (aObj instanceof ActionDescriptor) {
-                                    String n = getActionDisplayName((ActionDescriptor) aObj);
-                                    if (n != null) {
-                                        seenInStep.add(n.toLowerCase());
-                                    }
-                                }
-                            }
-                            for (String k : seenInStep) {
-                                Integer prev = stepCountByActionLower.get(k);
-                                stepCountByActionLower.put(k, prev == null ? 1 : prev + 1);
-                            }
-                        }
-                    }
-                }
+            if (!match) {
+                return "Aucune demande d'infos sup possible à l'état « " + displayStatus + " ».";
             }
+            return null;
+        }
 
-            // 3. Examiner les transitions sortantes de l'étape courante (currentStep.getActions())
-            List<String> stepActionsLower = new ArrayList<String>();
-            if (currentStep.getActions() != null) {
-                for (Object aObj : currentStep.getActions()) {
-                    if (aObj instanceof ActionDescriptor) {
-                        String n = getActionDisplayName((ActionDescriptor) aObj);
-                        if (n != null) {
-                            stepActionsLower.add(n.toLowerCase());
-                        }
-                    }
-                }
-            }
-
-            if (!stepActionsLower.isEmpty()) {
-                boolean hasAllowedSpecificAction = false;
-                String firstDisallowedSpecific = null;
-                String firstDisallowedAny = null;
-                boolean allDisallowed = true;
-
-                for (String actLower : stepActionsLower) {
-                    boolean isDisallowed = originalByLower.containsKey(actLower);
-                    int count = stepCountByActionLower.containsKey(actLower) ? stepCountByActionLower.get(actLower) : 1;
-                    boolean isSpecific = (count <= 1);
-
-                    if (isDisallowed) {
-                        if (firstDisallowedAny == null) {
-                            firstDisallowedAny = originalByLower.get(actLower);
-                        }
-                        if (isSpecific && firstDisallowedSpecific == null) {
-                            firstDisallowedSpecific = originalByLower.get(actLower);
-                        }
-                    } else {
-                        allDisallowed = false;
-                        if (isSpecific) {
-                            hasAllowedSpecificAction = true;
-                        }
-                    }
-                }
-
-                // Si une transition propre à l'étape courante est interdite, ou si toutes les transitions
-                // sortantes de l'étape courante sont interdites, la demande est interdite
-                if (firstDisallowedSpecific != null) {
-                    return firstDisallowedSpecific;
-                }
-                if (allDisallowed && firstDisallowedAny != null) {
-                    return firstDisallowedAny;
-                }
-                if (!hasAllowedSpecificAction && firstDisallowedAny != null) {
-                    return firstDisallowedAny;
-                }
-            } else {
-                // 4. Si l'étape courante n'a aucune transition sortante spécifique, vérifier les transitions entrantes menant à currentStep
-                Collection<ActionDescriptor> allActions = wf.getAllActions();
-                if (allActions != null) {
-                    String firstIncomingDisallowed = null;
-                    boolean hasAllowedIncoming = false;
-                    for (ActionDescriptor action : allActions) {
-                        if (action == null || action.getId() == 1) {
-                            continue;
-                        }
-                        ResultDescriptor res = action.getUnconditionalResult();
-                        if (res != null && res.getStep() == currentStep.getId()) {
-                            String actName = getActionDisplayName(action);
-                            if (actName != null) {
-                                String lower = actName.toLowerCase();
-                                if (originalByLower.containsKey(lower)) {
-                                    if (firstIncomingDisallowed == null) {
-                                        firstIncomingDisallowed = originalByLower.get(lower);
-                                    }
-                                } else {
-                                    hasAllowedIncoming = true;
-                                }
-                            }
-                        }
-                    }
-                    if (firstIncomingDisallowed != null && !hasAllowedIncoming) {
-                        return firstIncomingDisallowed;
-                    }
-                }
-            }
-        } catch (Exception ignored) {
+        // Comportement par défaut : tous les états finaux ne permettent pas de demander d'infos sup
+        if (isFinalStatusOrStep(issue)) {
+            return "Ticket à l'état final (« " + displayStatus + " ») : aucune demande d'infos sup possible.";
         }
         return null;
     }
 
-    private static String getActionDisplayName(ActionDescriptor action) {
-        if (action == null) {
-            return null;
+    private String getCurrentStatusDisplayName(MutableIssue issue) {
+        Status status = issue.getStatus();
+        if (status != null) {
+            if (status.getNameTranslation() != null && !status.getNameTranslation().trim().isEmpty()) {
+                return status.getNameTranslation().trim();
+            }
+            if (status.getName() != null && !status.getName().trim().isEmpty()) {
+                return status.getName().trim();
+            }
         }
-        String displayName = null;
+        return "";
+    }
+
+    private Set<String> getCurrentStatusAndStepNamesLower(MutableIssue issue) {
+        Set<String> names = new LinkedHashSet<String>();
+        Status status = issue.getStatus();
+        if (status != null) {
+            if (status.getNameTranslation() != null && !status.getNameTranslation().trim().isEmpty()) {
+                names.add(status.getNameTranslation().trim().toLowerCase());
+            }
+            if (status.getName() != null && !status.getName().trim().isEmpty()) {
+                names.add(status.getName().trim().toLowerCase());
+            }
+        }
         try {
-            displayName = WorkflowUtil.getWorkflowTransitionDisplayName(action);
+            WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
+            JiraWorkflow wf = wfm != null ? wfm.getWorkflow(issue) : null;
+            if (wf != null && status != null) {
+                StepDescriptor step = wf.getLinkedStep(status);
+                if (step != null && step.getName() != null && !step.getName().trim().isEmpty()) {
+                    names.add(step.getName().trim().toLowerCase());
+                }
+            }
         } catch (Exception ignored) {
         }
-        if (displayName == null || displayName.trim().isEmpty()) {
-            displayName = action.getName();
+        return names;
+    }
+
+    /**
+     * Détermine si le ticket est dans un état final (catégorie Jira "done"
+     * ou étape terminale du workflow n'ayant aucune transition sortante).
+     */
+    private boolean isFinalStatusOrStep(MutableIssue issue) {
+        Status status = issue.getStatus();
+        if (status != null && status.getStatusCategory() != null
+                && "done".equalsIgnoreCase(status.getStatusCategory().getKey())) {
+            return true;
         }
-        return (displayName == null || displayName.trim().isEmpty()) ? null : displayName.trim();
+        try {
+            WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
+            JiraWorkflow wf = wfm != null ? wfm.getWorkflow(issue) : null;
+            if (wf != null && status != null) {
+                StepDescriptor step = wf.getLinkedStep(status);
+                WorkflowDescriptor wd = wf.getDescriptor();
+                if (step != null && wd != null) {
+                    boolean hasStepActions = step.getActions() != null && !step.getActions().isEmpty();
+                    boolean hasGlobalActions = wd.getGlobalActions() != null && !wd.getGlobalActions().isEmpty();
+                    if (!hasStepActions && !hasGlobalActions) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     private void checkRequestAllowed(MutableIssue issue, ApplicationUser requester) {
@@ -732,13 +637,11 @@ public class ClarificationServiceImpl implements ClarificationService {
             throw new ClarificationException(ClarificationException.CONFLICT,
                     "Une demande est déjà en attente sur ce ticket.");
         }
-        if (isClosed(issue)) {
-            throw ClarificationException.forbidden("Le ticket est clôturé.");
-        }
-        String disallowedTransition = findDisallowedRequestTransition(issue);
-        if (disallowedTransition != null) {
-            throw ClarificationException.forbidden(
-                    "Aucune demande d'infos sup n'est autorisée sur cette transition (" + disallowedTransition + ").");
+        String projectKey = issue.getProjectObject() != null ? issue.getProjectObject().getKey() : null;
+        ProjectConfig config = projectKey != null ? projectConfigService.getConfig(projectKey) : null;
+        String disallowedReason = getDisallowedStatusReason(issue, config);
+        if (disallowedReason != null) {
+            throw ClarificationException.forbidden(disallowedReason);
         }
         ApplicationUser assignee = issue.getAssignee();
         if (assignee == null || !sameUser(requester, assignee)) {
@@ -799,12 +702,6 @@ public class ClarificationServiceImpl implements ClarificationService {
             throw new ClarificationException(ClarificationException.NOT_FOUND, "Ticket introuvable : " + issueKey);
         }
         return issue;
-    }
-
-    private boolean isClosed(MutableIssue issue) {
-        Status status = issue.getStatus();
-        return status != null && status.getStatusCategory() != null
-                && "done".equals(status.getStatusCategory().getKey());
     }
 
     private void addComment(MutableIssue issue, ApplicationUser author, String body) {

@@ -242,7 +242,8 @@
         var pending = findPending(entries);
 
         $("#clr-status").html(pending ? renderPending(pending, perms) : renderIdle(perms));
-        toggleWorkflowTransitions(!!pending, pending);
+        var isFrozen = !!pending && (perms.transitionsLocked !== false);
+        toggleWorkflowTransitions(isFrozen, pending);
 
         var closed = entries.filter(function (e) { return e.status !== "PENDING"; }).reverse();
         $("#clr-history-count").text(closed.length);
@@ -257,36 +258,8 @@
             return;
         }
 
-        var blockedNames = (state.data && state.data.permissions && state.data.permissions.blockedTransitionNames) || [];
-        var blockAll = (blockedNames.length === 0);
-        var reason = "Transition bloquée : une demande d'infos sup est en attente de la réponse de " + ((pending && pending.recipient) || "son destinataire") + ".";
-
-        $allBtns.each(function () {
-            var $btn = $(this);
-            var isMore = $btn.is("#opsbar-transitions_more");
-
-            if (blockAll) {
-                $btn.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
-            } else if (isMore) {
-                // Si seules certaines transitions sont bloquées, laisser ouvrir le menu "Plus"
-                // pour ne bloquer que les transitions concernées à l'intérieur
-                $btn.removeClass("clr-transition-locked").removeAttr("aria-disabled").removeAttr("title");
-            } else {
-                var btnText = $.trim($btn.find(".trigger-label").text() || $btn.text());
-                var shouldBlock = false;
-                for (var i = 0; i < blockedNames.length; i++) {
-                    if (btnText.toLowerCase() === String(blockedNames[i]).toLowerCase()) {
-                        shouldBlock = true;
-                        break;
-                    }
-                }
-                if (shouldBlock) {
-                    $btn.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
-                } else {
-                    $btn.removeClass("clr-transition-locked").removeAttr("aria-disabled").removeAttr("title");
-                }
-            }
-        });
+        var reason = "État figé : une demande d'infos sup est en attente de la réponse de " + ((pending && pending.recipient) || "son destinataire") + ".";
+        $allBtns.addClass("clr-transition-locked").attr({ "aria-disabled": "true", "title": reason });
     }
 
     function renderIdle(perms) {
@@ -297,12 +270,14 @@
     }
 
     function renderPending(p, perms) {
-        var blockedNames = perms.blockedTransitionNames || [];
-        var lockLabel = blockedNames.length === 0 ? "Transitions bloquées" : blockedNames.length + " transition(s) bloquée(s)";
+        var isFrozen = perms.transitionsLocked !== false;
+        var lockBadge = isFrozen
+            ? '  <span class="aui-lozenge aui-lozenge-moved clr-lock-badge" title="L\'état du ticket est figé tant que la demande est en attente">État figé</span>'
+            : '';
         var html =
             '<div class="clr-pending">' +
             '  <div class="clr-pending-title"><span class="aui-lozenge aui-lozenge-current">En attente</span>' +
-            '  <span class="aui-lozenge aui-lozenge-moved clr-lock-badge" title="Les transitions du workflow sont bloquées tant que la demande est en attente">' + esc(lockLabel) + '</span></div>' +
+            lockBadge + '</div>' +
             '  <div class="clr-meta"><strong>' + esc(p.requestedBy) + "</strong> → <strong>" + esc(p.recipient) + "</strong> · " + esc(p.requestedAt) + "</div>" +
             '  <div class="clr-text">' + esc(p.question) + "</div>" +
                  attachmentHtml(p.requestAttachmentId, p.requestAttachmentName) +

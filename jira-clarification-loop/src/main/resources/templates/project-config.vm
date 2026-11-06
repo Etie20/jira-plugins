@@ -10,7 +10,7 @@
 <body>
     <div id="clr-config-panel" data-project-key="$projectKey">
         <h2>Demande d'informations supplémentaires</h2>
-        <p class="clr-config-desc">Configurez la demande d'infos sup pour ce projet : activation, pause des SLA (Time to SLA), types de tickets concernés, transitions où la demande est autorisée et transitions bloquées pendant l'attente d'une réponse.</p>
+        <p class="clr-config-desc">Configurez la demande d'infos sup pour ce projet : activation, pause des SLA (Time to SLA), types de tickets concernés, états où la demande est possible et états où une demande en attente fige le ticket.</p>
 
         <div id="clr-config-loading" class="aui-message aui-message-info">
             <p>Chargement de la configuration...</p>
@@ -67,48 +67,49 @@
                 <div id="clr-issue-types-list" class="clr-grid-box"></div>
             </div>
 
-            <!-- Transitions autorisant ou interdisant de faire une demande d'infos sup -->
+            <!-- États du ticket où l'on peut faire une demande d'infos sup -->
             <div class="clr-config-section">
                 <div class="clr-config-section-header">
                     <div>
-                        <h3>Transitions autorisant la demande d'infos sup</h3>
-                        <span class="clr-section-sub">Décochez les transitions sur lesquelles l'utilisateur ne doit pas pouvoir créer de demande d'infos sup (tout cocher = demande autorisée partout).</span>
+                        <h3>États du ticket autorisant la demande d'infos sup</h3>
+                        <span class="clr-section-sub">Sélectionnez les états dans lesquels l'utilisateur peut demander des infos sup. Par défaut, tous les états finaux ne permettent pas de faire une demande.</span>
                     </div>
-                    <span id="clr-req-tr-counter" class="clr-counter-badge"></span>
+                    <span id="clr-req-st-counter" class="clr-counter-badge"></span>
                 </div>
                 <div class="clr-selector-toolbar">
-                    <input type="text" id="clr-req-tr-search" class="text clr-filter-input" placeholder="Rechercher une transition..." autocomplete="off" />
-                    <select id="clr-req-tr-wf-filter" class="select clr-wf-select" style="display:none;">
+                    <input type="text" id="clr-req-st-search" class="text clr-filter-input" placeholder="Rechercher un état..." autocomplete="off" />
+                    <select id="clr-req-st-wf-filter" class="select clr-wf-select" style="display:none;">
                         <option value="">Tous les workflows</option>
                     </select>
                     <div class="clr-toolbar-actions">
-                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-req-tr-cb">Tout autoriser</button>
-                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-req-tr-cb">Tout interdire</button>
+                        <button type="button" id="clr-req-st-default" class="aui-button aui-button-compact" title="Autoriser tous les états sauf les états finaux">Hors états finaux (défaut)</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-req-st-cb">Tout autoriser</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-req-st-cb">Tout interdire</button>
                     </div>
                 </div>
-                <div id="clr-req-transitions-list" class="clr-grid-box clr-grid-box-transitions"></div>
+                <div id="clr-req-statuses-list" class="clr-grid-box clr-grid-box-statuses"></div>
             </div>
 
-            <!-- Transitions bloquées pendant une demande en attente -->
+            <!-- États où une demande en attente fige le ticket (bloque les transitions) -->
             <div class="clr-config-section">
                 <div class="clr-config-section-header">
                     <div>
-                        <h3>Transitions du workflow bloquées pendant l'attente</h3>
-                        <span class="clr-section-sub">Transitions verrouillées tant qu'une demande d'infos sup attend une réponse (tout cocher = toutes les transitions bloquées).</span>
+                        <h3>États où une demande d'infos sup fige le ticket (bloque les transitions)</h3>
+                        <span class="clr-section-sub">Sélectionnez les états dans lesquels une demande d'infos sup en attente fige l'état du ticket et verrouille ses transitions jusqu'à la réponse.</span>
                     </div>
-                    <span id="clr-tr-counter" class="clr-counter-badge"></span>
+                    <span id="clr-blk-st-counter" class="clr-counter-badge"></span>
                 </div>
                 <div class="clr-selector-toolbar">
-                    <input type="text" id="clr-tr-search" class="text clr-filter-input" placeholder="Rechercher une transition..." autocomplete="off" />
-                    <select id="clr-tr-wf-filter" class="select clr-wf-select" style="display:none;">
+                    <input type="text" id="clr-blk-st-search" class="text clr-filter-input" placeholder="Rechercher un état..." autocomplete="off" />
+                    <select id="clr-blk-st-wf-filter" class="select clr-wf-select" style="display:none;">
                         <option value="">Tous les workflows</option>
                     </select>
                     <div class="clr-toolbar-actions">
-                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-tr-cb">Tout bloquer</button>
-                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-tr-cb">Tout débloquer</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-blk-st-cb">Tout figer</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-blk-st-cb">Tout débloquer</button>
                     </div>
                 </div>
-                <div id="clr-transitions-list" class="clr-grid-box clr-grid-box-transitions"></div>
+                <div id="clr-blk-statuses-list" class="clr-grid-box clr-grid-box-statuses"></div>
             </div>
 
             <div class="buttons-container clr-footer-bar">
@@ -212,8 +213,8 @@
             border-bottom: 1px solid #ebecf0;
         }
         #clr-config-panel .clr-filter-input {
-            flex: 1 1 220px;
-            max-width: 320px !important;
+            flex: 1 1 200px;
+            max-width: 280px !important;
             height: 30px;
             padding: 4px 10px;
             font-size: 13px;
@@ -221,7 +222,7 @@
             border-radius: 3px;
         }
         #clr-config-panel .clr-wf-select {
-            max-width: 240px !important;
+            max-width: 220px !important;
             height: 30px;
             font-size: 13px;
             border: 1px solid #dfe1e6;
@@ -231,19 +232,20 @@
         #clr-config-panel .clr-toolbar-actions {
             margin-left: auto;
             display: flex;
+            flex-wrap: wrap;
             gap: 6px;
         }
         #clr-config-panel .clr-grid-box {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             gap: 8px;
             padding: 12px 16px;
             max-height: 220px;
             overflow-y: auto;
             background: #ffffff;
         }
-        #clr-config-panel .clr-grid-box-transitions {
-            max-height: 300px;
+        #clr-config-panel .clr-grid-box-statuses {
+            max-height: 280px;
         }
         #clr-config-panel .clr-check-card {
             display: flex;
@@ -282,6 +284,16 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        #clr-config-panel .clr-final-pill {
+            flex-shrink: 0;
+            font-size: 10px;
+            font-weight: 600;
+            color: #42526e;
+            background: #dfe1e6;
+            padding: 1px 5px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
         #clr-config-panel .clr-wf-pill {
             flex-shrink: 0;
             font-size: 11px;
@@ -289,7 +301,7 @@
             background: #ebecf0;
             padding: 1px 6px;
             border-radius: 3px;
-            max-width: 85px;
+            max-width: 75px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -310,6 +322,14 @@
         #clr-config-panel .clr-pill-disallowed {
             color: #bf2600;
             background: #ffebe6;
+        }
+        #clr-config-panel .clr-pill-frozen {
+            color: #253858;
+            background: #dfe1e6;
+        }
+        #clr-config-panel .clr-pill-unfrozen {
+            color: #6b778c;
+            background: #f4f5f7;
         }
         #clr-config-panel .clr-empty-msg {
             grid-column: 1 / -1;
@@ -349,15 +369,16 @@
                 if (mode === "allow-request") {
                     var forbidden = total - checked;
                     if (forbidden === 0) {
-                        $counter.text("Toutes autorisées (" + total + ")");
+                        $counter.text("Tous autorisés (" + total + ")");
                     } else {
-                        $counter.text(checked + " autorisée(s) · " + forbidden + " interdite(s)");
+                        $counter.text(checked + " autorisé(s) · " + forbidden + " interdit(s)");
                     }
-                } else if (mode === "block-transition") {
-                    if (checked === total) {
-                        $counter.text("Toutes bloquées (" + total + ")");
+                } else if (mode === "freeze-status") {
+                    var unfrozen = total - checked;
+                    if (unfrozen === 0) {
+                        $counter.text("Tous figés (" + total + ")");
                     } else {
-                        $counter.text(checked + " / " + total + " bloquée(s)");
+                        $counter.text(checked + " figé(s) · " + unfrozen + " non figé(s)");
                     }
                 } else {
                     if (checked === total) {
@@ -371,58 +392,113 @@
             function syncCardAppearance($cb, mode) {
                 var $card = $cb.closest(".clr-check-card");
                 var checked = $cb.prop("checked");
+                var $pill = $card.find(".clr-state-pill");
                 if (mode === "allow-request") {
                     $card.toggleClass("clr-card-checked", checked);
                     $card.toggleClass("clr-card-disallowed", !checked);
-                    var $pill = $card.find(".clr-state-pill");
                     if ($pill.length) {
                         $pill
-                            .toggleClass("clr-pill-allowed", checked)
-                            .toggleClass("clr-pill-disallowed", !checked)
-                            .text(checked ? "Autorisée" : "Interdite");
+                            .removeClass("clr-pill-allowed clr-pill-disallowed")
+                            .addClass(checked ? "clr-pill-allowed" : "clr-pill-disallowed")
+                            .text(checked ? "Autorisé" : "Interdit");
+                    }
+                } else if (mode === "freeze-status") {
+                    $card.toggleClass("clr-card-checked", checked);
+                    $card.removeClass("clr-card-disallowed");
+                    if ($pill.length) {
+                        $pill
+                            .removeClass("clr-pill-frozen clr-pill-unfrozen")
+                            .addClass(checked ? "clr-pill-frozen" : "clr-pill-unfrozen")
+                            .text(checked ? "Figé" : "Non figé");
                     }
                 } else {
                     $card.toggleClass("clr-card-checked", checked);
                 }
             }
 
-            function renderGrid(box, items, cssClass, valueKey, listValues, $counter, mode) {
+            function renderIssueTypesGrid(box, items, selected, $counter) {
                 box.empty();
                 if (!items.length) {
-                    box.append('<div class="clr-empty-msg">Aucun élément trouvé.</div>');
-                    updateCounter(cssClass, $counter, mode);
+                    box.append('<div class="clr-empty-msg">Aucun type de ticket trouvé.</div>');
+                    updateCounter("clr-it-cb", $counter, "issue-types");
                     return;
                 }
                 items.forEach(function (item, i) {
-                    var value = String(item[valueKey]);
-                    var id = cssClass + "-" + i;
-                    var isChecked;
-                    if (mode === "allow-request") {
-                        // listValues contient les transitions INTERDITES (décochées)
-                        isChecked = (listValues.indexOf(value) < 0);
-                    } else {
-                        // listValues contient les éléments sélectionnés ([] = tout coché)
-                        isChecked = (listValues.length === 0 || listValues.indexOf(value) >= 0);
-                    }
+                    var value = String(item.id);
+                    var id = "clr-it-cb-" + i;
+                    var isChecked = (selected.length === 0 || selected.indexOf(value) >= 0);
                     var checkedAttr = isChecked ? ' checked="checked"' : "";
-                    var cardClass = "clr-check-card" + (isChecked ? " clr-card-checked" : (mode === "allow-request" ? " clr-card-disallowed" : ""));
-                    var wfRaw = item.workflows || "";
+                    var cardClass = "clr-check-card" + (isChecked ? " clr-card-checked" : "");
+                    box.append(
+                        '<label class="' + cardClass + '" for="' + id + '" data-name="' + escapeHtml(String(item.name).toLowerCase()) + '" title="' + escapeHtml(item.name) + '">' +
+                        '<input type="checkbox" class="checkbox clr-it-cb" id="' + id + '" value="' + escapeHtml(value) + '"' + checkedAttr + ' />' +
+                        '<span class="clr-card-title">' + escapeHtml(item.name) + '</span>' +
+                        '</label>'
+                    );
+                });
+                updateCounter("clr-it-cb", $counter, "issue-types");
+            }
+
+            function renderStatusesGrid(box, statuses, cssClass, config, $counter, mode) {
+                box.empty();
+                if (!statuses.length) {
+                    box.append('<div class="clr-empty-msg">Aucun état trouvé pour ce projet.</div>');
+                    updateCounter(cssClass, $counter, mode);
+                    return;
+                }
+                var customized = !!config.requestStatusesCustomized;
+                var allowedNames = config.allowedRequestStatusNames || [];
+                var unblockedNames = config.unblockedStatusNames || [];
+
+                statuses.forEach(function (st, i) {
+                    var value = String(st.name);
+                    var id = cssClass + "-" + i;
+                    var isFinal = !!st.isFinal;
+                    var isChecked;
+
+                    if (mode === "allow-request") {
+                        if (customized) {
+                            isChecked = (allowedNames.indexOf(value) >= 0);
+                        } else {
+                            // Par défaut : tous les états finaux ne permettent pas de demander d'infos sup
+                            isChecked = !isFinal;
+                        }
+                    } else {
+                        // Mode freeze-status : tous les états figent le ticket sauf ceux dans unblockedNames
+                        isChecked = (unblockedNames.indexOf(value) < 0);
+                    }
+
+                    var checkedAttr = isChecked ? ' checked="checked"' : "";
+                    var cardClass = "clr-check-card";
+                    if (isChecked) {
+                        cardClass += " clr-card-checked";
+                    } else if (mode === "allow-request") {
+                        cardClass += " clr-card-disallowed";
+                    }
+
+                    var finalBadge = isFinal ? '<span class="clr-final-pill" title="État final du workflow">Final</span>' : "";
+                    var wfRaw = st.workflows || "";
                     var wfPill = "";
-                    var tooltip = item.name;
+                    var tooltip = st.name + (isFinal ? " (État final)" : "");
                     if (wfRaw) {
                         var wfList = wfRaw.split(", ");
                         var pillText = wfList.length > 1 ? (wfList.length + " wf") : wfList[0];
-                        tooltip = item.name + " — Workflow(s) : " + wfRaw;
+                        tooltip += " — Workflow(s) : " + wfRaw;
                         wfPill = '<span class="clr-wf-pill" title="' + escapeHtml("Workflow(s) : " + wfRaw) + '">' + escapeHtml(pillText) + '</span>';
                     }
+
                     var statePill = "";
                     if (mode === "allow-request") {
-                        statePill = '<span class="clr-state-pill ' + (isChecked ? 'clr-pill-allowed' : 'clr-pill-disallowed') + '">' + (isChecked ? 'Autorisée' : 'Interdite') + '</span>';
+                        statePill = '<span class="clr-state-pill ' + (isChecked ? 'clr-pill-allowed' : 'clr-pill-disallowed') + '">' + (isChecked ? 'Autorisé' : 'Interdit') + '</span>';
+                    } else {
+                        statePill = '<span class="clr-state-pill ' + (isChecked ? 'clr-pill-frozen' : 'clr-pill-unfrozen') + '">' + (isChecked ? 'Figé' : 'Non figé') + '</span>';
                     }
+
                     box.append(
-                        '<label class="' + cardClass + '" for="' + id + '" data-name="' + escapeHtml(String(item.name).toLowerCase()) + '" data-wfs="' + escapeHtml(wfRaw.toLowerCase()) + '" title="' + escapeHtml(tooltip) + '">' +
+                        '<label class="' + cardClass + '" for="' + id + '" data-name="' + escapeHtml(value.toLowerCase()) + '" data-wfs="' + escapeHtml(wfRaw.toLowerCase()) + '" data-final="' + (isFinal ? '1' : '0') + '" title="' + escapeHtml(tooltip) + '">' +
                         '<input type="checkbox" class="checkbox ' + cssClass + '" id="' + id + '" value="' + escapeHtml(value) + '"' + checkedAttr + ' />' +
-                        '<span class="clr-card-title">' + escapeHtml(item.name) + '</span>' +
+                        '<span class="clr-card-title">' + escapeHtml(value) + '</span>' +
+                        finalBadge +
                         wfPill +
                         statePill +
                         '</label>'
@@ -431,13 +507,13 @@
                 updateCounter(cssClass, $counter, mode);
             }
 
-            function populateWorkflowFilters(transitions) {
-                var $wfSelects = $("#clr-tr-wf-filter, #clr-req-tr-wf-filter");
+            function populateWorkflowFilters(statuses) {
+                var $wfSelects = $("#clr-req-st-wf-filter, #clr-blk-st-wf-filter");
                 var wfSet = {};
                 var wfOrder = [];
-                (transitions || []).forEach(function (t) {
-                    if (t.workflows) {
-                        t.workflows.split(", ").forEach(function (w) {
+                (statuses || []).forEach(function (st) {
+                    if (st.workflows) {
+                        st.workflows.split(", ").forEach(function (w) {
                             var clean = $.trim(w);
                             if (clean && !wfSet[clean]) {
                                 wfSet[clean] = true;
@@ -472,7 +548,6 @@
                 });
             }
 
-            // Retourne la liste cochée, ou [] si tout est coché (= tous)
             function collectCheckedOrEmptyIfAll(cssClass) {
                 var values = [], all = true;
                 $("." + cssClass).each(function () {
@@ -481,7 +556,14 @@
                 return all ? [] : values;
             }
 
-            // Retourne la liste des éléments DÉCOCHÉS (transitions interdites)
+            function collectChecked(cssClass) {
+                var checked = [];
+                $("." + cssClass).each(function () {
+                    if (this.checked) { checked.push(this.value); }
+                });
+                return checked;
+            }
+
             function collectUnchecked(cssClass) {
                 var unchecked = [];
                 $("." + cssClass).each(function () {
@@ -506,12 +588,12 @@
                     }
 
                     var issueTypes = data.issueTypes || [];
-                    var transitions = data.transitions || [];
+                    var statuses = data.statuses || [];
 
-                    populateWorkflowFilters(transitions);
-                    renderGrid($("#clr-issue-types-list"), issueTypes, "clr-it-cb", "id", config.enabledIssueTypeIds || [], $("#clr-it-counter"), "issue-types");
-                    renderGrid($("#clr-req-transitions-list"), transitions, "clr-req-tr-cb", "name", config.disallowedRequestTransitionNames || [], $("#clr-req-tr-counter"), "allow-request");
-                    renderGrid($("#clr-transitions-list"), transitions, "clr-tr-cb", "name", config.blockedTransitionNames || [], $("#clr-tr-counter"), "block-transition");
+                    populateWorkflowFilters(statuses);
+                    renderIssueTypesGrid($("#clr-issue-types-list"), issueTypes, config.enabledIssueTypeIds || [], $("#clr-it-counter"));
+                    renderStatusesGrid($("#clr-req-statuses-list"), statuses, "clr-req-st-cb", config, $("#clr-req-st-counter"), "allow-request");
+                    renderStatusesGrid($("#clr-blk-statuses-list"), statuses, "clr-blk-st-cb", config, $("#clr-blk-st-counter"), "freeze-status");
 
                     $("#clr-config-loading").hide();
                     $("#clr-config-form").show();
@@ -529,34 +611,43 @@
                     syncCardAppearance($(this), "issue-types");
                     updateCounter("clr-it-cb", $("#clr-it-counter"), "issue-types");
                 })
-                .on("change", ".clr-req-tr-cb", function () {
+                .on("change", ".clr-req-st-cb", function () {
                     syncCardAppearance($(this), "allow-request");
-                    updateCounter("clr-req-tr-cb", $("#clr-req-tr-counter"), "allow-request");
+                    updateCounter("clr-req-st-cb", $("#clr-req-st-counter"), "allow-request");
                 })
-                .on("change", ".clr-tr-cb", function () {
-                    syncCardAppearance($(this), "block-transition");
-                    updateCounter("clr-tr-cb", $("#clr-tr-counter"), "block-transition");
+                .on("change", ".clr-blk-st-cb", function () {
+                    syncCardAppearance($(this), "freeze-status");
+                    updateCounter("clr-blk-st-cb", $("#clr-blk-st-counter"), "freeze-status");
                 })
                 .on("input", "#clr-it-search", function () {
                     filterCards($("#clr-issue-types-list"), $(this).val(), "");
                 })
-                .on("input", "#clr-req-tr-search", function () {
-                    filterCards($("#clr-req-transitions-list"), $(this).val(), $("#clr-req-tr-wf-filter").val());
+                .on("input", "#clr-req-st-search", function () {
+                    filterCards($("#clr-req-statuses-list"), $(this).val(), $("#clr-req-st-wf-filter").val());
                 })
-                .on("change", "#clr-req-tr-wf-filter", function () {
-                    filterCards($("#clr-req-transitions-list"), $("#clr-req-tr-search").val(), $(this).val());
+                .on("change", "#clr-req-st-wf-filter", function () {
+                    filterCards($("#clr-req-statuses-list"), $("#clr-req-st-search").val(), $(this).val());
                 })
-                .on("input", "#clr-tr-search", function () {
-                    filterCards($("#clr-transitions-list"), $(this).val(), $("#clr-tr-wf-filter").val());
+                .on("input", "#clr-blk-st-search", function () {
+                    filterCards($("#clr-blk-statuses-list"), $(this).val(), $("#clr-blk-st-wf-filter").val());
                 })
-                .on("change", "#clr-tr-wf-filter", function () {
-                    filterCards($("#clr-transitions-list"), $("#clr-tr-search").val(), $(this).val());
+                .on("change", "#clr-blk-st-wf-filter", function () {
+                    filterCards($("#clr-blk-statuses-list"), $("#clr-blk-st-search").val(), $(this).val());
+                })
+                .on("click", "#clr-req-st-default", function () {
+                    $(".clr-req-st-cb").each(function () {
+                        var $card = $(this).closest(".clr-check-card");
+                        var isFinal = $card.attr("data-final") === "1";
+                        this.checked = !isFinal;
+                        syncCardAppearance($(this), "allow-request");
+                    });
+                    updateCounter("clr-req-st-cb", $("#clr-req-st-counter"), "allow-request");
                 })
                 .on("click", ".clr-select-all, .clr-select-none", function () {
                     var check = $(this).hasClass("clr-select-all");
                     var targetClass = $(this).data("target");
-                    var mode = targetClass === "clr-req-tr-cb" ? "allow-request" : (targetClass === "clr-tr-cb" ? "block-transition" : "issue-types");
-                    var $counter = targetClass === "clr-req-tr-cb" ? $("#clr-req-tr-counter") : (targetClass === "clr-tr-cb" ? $("#clr-tr-counter") : $("#clr-it-counter"));
+                    var mode = targetClass === "clr-req-st-cb" ? "allow-request" : (targetClass === "clr-blk-st-cb" ? "freeze-status" : "issue-types");
+                    var $counter = targetClass === "clr-req-st-cb" ? $("#clr-req-st-counter") : (targetClass === "clr-blk-st-cb" ? $("#clr-blk-st-counter") : $("#clr-it-counter"));
                     $("." + targetClass).each(function () {
                         var $card = $(this).closest(".clr-check-card");
                         if ($card.is(":visible")) {
@@ -576,8 +667,9 @@
                     enabled: $("#clr-enabled").prop("checked"),
                     pauseSla: $("#clr-pause-sla").prop("checked"),
                     enabledIssueTypeIds: collectCheckedOrEmptyIfAll("clr-it-cb"),
-                    disallowedRequestTransitionNames: collectUnchecked("clr-req-tr-cb"),
-                    blockedTransitionNames: collectCheckedOrEmptyIfAll("clr-tr-cb")
+                    requestStatusesCustomized: true,
+                    allowedRequestStatusNames: collectChecked("clr-req-st-cb"),
+                    unblockedStatusNames: collectUnchecked("clr-blk-st-cb")
                 };
 
                 $.ajax({

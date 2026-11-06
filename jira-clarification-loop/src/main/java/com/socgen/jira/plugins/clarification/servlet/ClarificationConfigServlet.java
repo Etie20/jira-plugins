@@ -95,6 +95,7 @@ public class ClarificationConfigServlet extends HttpServlet {
             }
         }
         result.add("issueTypes", issueTypes);
+        result.add("statuses", ClarificationRestResource.extractProjectStatuses(project));
         result.add("transitions", ClarificationRestResource.extractProjectTransitions(project));
 
         resp.setContentType("application/json;charset=UTF-8");

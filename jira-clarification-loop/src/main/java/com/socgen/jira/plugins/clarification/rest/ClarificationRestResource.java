@@ -10,6 +10,8 @@ import com.atlassian.jira.issue.MutableIssue;
 import com.atlassian.jira.issue.comments.Comment;
 import com.atlassian.jira.issue.fields.CustomField;
 import com.atlassian.jira.issue.issuetype.IssueType;
+import com.atlassian.jira.issue.status.Status;
+import com.atlassian.jira.issue.status.category.StatusCategory;
 import com.atlassian.jira.permission.GlobalPermissionKey;
 import com.atlassian.jira.permission.ProjectPermissions;
 import com.atlassian.jira.project.Project;
@@ -66,7 +68,7 @@ import java.util.Set;
  * POST /rest/clarification/1.0/issue/{key}/request      {comment, recipient, attachmentId, attachmentName, validateOnly}
  * POST /rest/clarification/1.0/issue/{key}/reply        {comment, attachmentId, attachmentName, validateOnly}
  * POST /rest/clarification/1.0/issue/{key}/cancel
- * GET  /rest/clarification/1.0/issue/config/{projectKey} configuration du projet + types de tickets + transitions
+ * GET  /rest/clarification/1.0/issue/config/{projectKey} configuration du projet + types de tickets + états
  * POST /rest/clarification/1.0/issue/config/{projectKey} sauvegarde de la configuration du projet
  *
  * En cas d'erreur : {"error": "...", "field": "comment|recipient|null"}
@@ -205,7 +207,6 @@ public class ClarificationRestResource {
                                         continue;
                                     }
                                     Set<ApplicationUser> actorUsers = actor.getUsers();
-                                    // Éviter de parcourir un groupe annuaire massif de plusieurs milliers de personnes sans filtre
                                     if (actorUsers != null && (actorUsers.size() <= 80 || !q.isEmpty())) {
                                         for (ApplicationUser u : actorUsers) {
                                             addCandidate(candidates, u, role.getName(), issue, currentUser, pm, avatarService, q);
@@ -303,7 +304,6 @@ public class ClarificationRestResource {
         if (!matchesUserQuery(candidate, queryLower)) {
             return;
         }
-        // Contrôle strict de la sécurité du ticket (permission projet + niveau de sécurité du ticket)
         if (!pm.hasPermission(ProjectPermissions.BROWSE_PROJECTS, issue, candidate)) {
             return;
         }
@@ -412,7 +412,6 @@ public class ClarificationRestResource {
         JsonObject result = new JsonObject();
         result.add("config", gson.toJsonTree(config));
 
-        // Assurer l'existence du champ personnalisé pour Time to SLA dès l'ouverture des paramètres
         CustomField slaField = ClarificationServiceImpl.ensureSlaCustomField();
         result.addProperty("slaFieldName", ClarificationServiceImpl.SLA_FIELD_NAME);
         if (slaField != null) {
@@ -430,7 +429,7 @@ public class ClarificationRestResource {
             }
         }
         result.add("issueTypes", issueTypes);
-
+        result.add("statuses", extractProjectStatuses(project));
         result.add("transitions", extractProjectTransitions(project));
         return ok(result);
     }
@@ -464,17 +463,14 @@ public class ClarificationRestResource {
     }
 
     /**
-     * Collecte 100 % des transitions de tous les workflows associés au projet
-     * (par type de ticket, par schéma de workflow et par workflow par défaut).
+     * Collecte tous les workflows associés au projet (par type de ticket,
+     * par schéma de workflow et par workflow par défaut).
      */
-    public static JsonArray extractProjectTransitions(Project project) {
-        JsonArray transitions = new JsonArray();
+    public static Map<String, JiraWorkflow> collectProjectWorkflows(Project project) {
         WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
         WorkflowSchemeManager wsm = ComponentAccessor.getWorkflowSchemeManager();
-
         Map<String, JiraWorkflow> workflowsByName = new LinkedHashMap<String, JiraWorkflow>();
 
-        // 1. Par chaque type de ticket du projet (méthode la plus fiable)
         Collection<IssueType> projectIssueTypes = project.getIssueTypes();
         if (projectIssueTypes != null) {
             for (IssueType it : projectIssueTypes) {
@@ -488,7 +484,6 @@ public class ClarificationRestResource {
             }
         }
 
-        // 2. Via la map du schéma de workflow du projet
         try {
             Map<String, String> wfMap = wsm.getWorkflowMap(project);
             if (wfMap != null) {
@@ -504,7 +499,6 @@ public class ClarificationRestResource {
         } catch (Exception ignored) {
         }
 
-        // 3. Via AssignableWorkflowScheme du projet
         try {
             AssignableWorkflowScheme aws = wsm.getWorkflowSchemeObj(project);
             if (aws != null) {
@@ -530,7 +524,6 @@ public class ClarificationRestResource {
         } catch (Exception ignored) {
         }
 
-        // 4. Via getSchemeFor(project)
         try {
             Scheme scheme = wsm.getSchemeFor(project);
             if (scheme != null) {
@@ -546,7 +539,6 @@ public class ClarificationRestResource {
         } catch (Exception ignored) {
         }
 
-        // 5. Fallback sur le workflow par défaut de Jira si vide
         if (workflowsByName.isEmpty()) {
             try {
                 JiraWorkflow def = wfm.getDefaultWorkflow();
@@ -557,7 +549,122 @@ public class ClarificationRestResource {
             }
         }
 
-        // Collecte de toutes les transitions de chaque workflow (globales, communes et par étape)
+        return workflowsByName;
+    }
+
+    /**
+     * Collecte 100 % des États (Statuts / Étapes) de tous les workflows associés au projet,
+     * en identifiant automatiquement les états finaux (catégorie Jira "done" ou étape terminale).
+     */
+    public static JsonArray extractProjectStatuses(Project project) {
+        Map<String, JiraWorkflow> workflowsByName = collectProjectWorkflows(project);
+
+        Map<String, String> idByName = new LinkedHashMap<String, String>();
+        Map<String, Boolean> finalByName = new LinkedHashMap<String, Boolean>();
+        Map<String, String> categoryByName = new LinkedHashMap<String, String>();
+        Map<String, Set<String>> workflowsByStatusName = new LinkedHashMap<String, Set<String>>();
+
+        for (JiraWorkflow wf : workflowsByName.values()) {
+            String wfLabel = wf.getDisplayName() != null ? wf.getDisplayName() : wf.getName();
+            WorkflowDescriptor wd = wf.getDescriptor();
+            boolean hasGlobalActions = wd != null && wd.getGlobalActions() != null && !wd.getGlobalActions().isEmpty();
+
+            if (wd != null && wd.getSteps() != null) {
+                for (Object sObj : wd.getSteps()) {
+                    if (!(sObj instanceof StepDescriptor)) {
+                        continue;
+                    }
+                    StepDescriptor step = (StepDescriptor) sObj;
+                    Status status = null;
+                    try {
+                        status = wf.getLinkedStatusObject(step);
+                    } catch (Exception ignored) {
+                    }
+
+                    String displayName = null;
+                    String statusId = String.valueOf(step.getId());
+                    boolean isDoneCategory = false;
+                    String categoryKey = "indeterminate";
+
+                    if (status != null) {
+                        statusId = status.getId();
+                        displayName = status.getNameTranslation() != null && !status.getNameTranslation().trim().isEmpty()
+                                ? status.getNameTranslation().trim()
+                                : status.getName();
+                        StatusCategory cat = status.getStatusCategory();
+                        if (cat != null && cat.getKey() != null) {
+                            categoryKey = cat.getKey();
+                            isDoneCategory = "done".equalsIgnoreCase(cat.getKey());
+                        }
+                    }
+                    if (displayName == null || displayName.trim().isEmpty()) {
+                        displayName = step.getName();
+                    }
+                    if (displayName == null || displayName.trim().isEmpty()) {
+                        continue;
+                    }
+                    displayName = displayName.trim();
+
+                    boolean hasStepActions = step.getActions() != null && !step.getActions().isEmpty();
+                    boolean isTerminalStep = !hasStepActions && !hasGlobalActions;
+                    boolean isFinal = isDoneCategory || isTerminalStep;
+
+                    if (!idByName.containsKey(displayName)) {
+                        idByName.put(displayName, statusId);
+                        finalByName.put(displayName, Boolean.valueOf(isFinal));
+                        categoryByName.put(displayName, categoryKey);
+                        workflowsByStatusName.put(displayName, new LinkedHashSet<String>());
+                    } else if (isFinal) {
+                        finalByName.put(displayName, Boolean.TRUE);
+                    }
+
+                    if (wfLabel != null && !wfLabel.trim().isEmpty()) {
+                        workflowsByStatusName.get(displayName).add(wfLabel.trim());
+                    }
+                }
+            }
+        }
+
+        boolean multipleWorkflows = workflowsByName.size() > 1;
+        JsonArray nonFinalArr = new JsonArray();
+        JsonArray finalArr = new JsonArray();
+
+        for (String name : idByName.keySet()) {
+            boolean isFinal = Boolean.TRUE.equals(finalByName.get(name));
+            JsonObject obj = new JsonObject();
+            obj.addProperty("id", idByName.get(name));
+            obj.addProperty("name", name);
+            obj.addProperty("isFinal", isFinal);
+            obj.addProperty("category", categoryByName.get(name));
+            Set<String> wfs = workflowsByStatusName.get(name);
+            if (multipleWorkflows && wfs != null && !wfs.isEmpty()) {
+                obj.addProperty("workflows", String.join(", ", wfs));
+            }
+            if (isFinal) {
+                finalArr.add(obj);
+            } else {
+                nonFinalArr.add(obj);
+            }
+        }
+
+        // Afficher d'abord les états actifs/intermédiaires, puis les états finaux à la fin
+        JsonArray statuses = new JsonArray();
+        for (JsonElement el : nonFinalArr) {
+            statuses.add(el);
+        }
+        for (JsonElement el : finalArr) {
+            statuses.add(el);
+        }
+        return statuses;
+    }
+
+    /**
+     * Collecte 100 % des transitions de tous les workflows associés au projet.
+     */
+    public static JsonArray extractProjectTransitions(Project project) {
+        JsonArray transitions = new JsonArray();
+        Map<String, JiraWorkflow> workflowsByName = collectProjectWorkflows(project);
+
         Map<String, Set<String>> transitionToWorkflows = new LinkedHashMap<String, Set<String>>();
         Map<String, Integer> transitionToFirstId = new LinkedHashMap<String, Integer>();
 
@@ -568,7 +675,6 @@ public class ClarificationRestResource {
                 if (action == null) {
                     continue;
                 }
-                // Exclure uniquement l'action initiale de création du ticket (id=1 "Create")
                 try {
                     if (wf.isInitialAction(action)) {
                         continue;

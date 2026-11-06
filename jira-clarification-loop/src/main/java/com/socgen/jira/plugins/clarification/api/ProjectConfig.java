@@ -15,6 +15,23 @@ public class ProjectConfig implements Serializable {
     private boolean enabled;
     private Boolean pauseSla;
     private List<String> enabledIssueTypeIds;
+
+    /**
+     * Indique si l'administrateur du projet a personnalisé la liste des états
+     * autorisant la création d'une demande d'infos sup.
+     * Tant que {@code false} (par défaut), tous les états non finaux sont autorisés
+     * et tous les états finaux (catégorie Done / Terminé) sont interdits.
+     */
+    private boolean requestStatusesCustomized;
+    private List<String> allowedRequestStatusNames;
+
+    /**
+     * États du ticket dans lesquels une demande d'infos sup en attente NE fige PAS le ticket
+     * (ne bloque pas le changement d'état / les transitions).
+     * Vide par défaut (= le ticket est figé quel que soit son état lorsqu'une demande est en attente).
+     */
+    private List<String> unblockedStatusNames;
+
     private List<String> blockedTransitionNames;
     private List<String> disallowedRequestTransitionNames;
 
@@ -22,6 +39,9 @@ public class ProjectConfig implements Serializable {
         this.enabled = false;
         this.pauseSla = Boolean.TRUE;
         this.enabledIssueTypeIds = new ArrayList<String>();
+        this.requestStatusesCustomized = false;
+        this.allowedRequestStatusNames = new ArrayList<String>();
+        this.unblockedStatusNames = new ArrayList<String>();
         this.blockedTransitionNames = new ArrayList<String>();
         this.disallowedRequestTransitionNames = new ArrayList<String>();
     }
@@ -37,7 +57,7 @@ public class ProjectConfig implements Serializable {
     /**
      * Indique si le champ personnalisé « Attente Infos Sup » (pour Time to SLA)
      * doit être synchronisé automatiquement lors d'une demande d'infos sup.
-     * Actif par défaut (y compris pour les projets déjà configurés en v2.0.2/v2.0.3).
+     * Actif par défaut.
      */
     public boolean isPauseSla() {
         return pauseSla == null || pauseSla.booleanValue();
@@ -55,6 +75,38 @@ public class ProjectConfig implements Serializable {
         this.enabledIssueTypeIds = enabledIssueTypeIds != null ? enabledIssueTypeIds : new ArrayList<String>();
     }
 
+    public boolean isRequestStatusesCustomized() {
+        return requestStatusesCustomized;
+    }
+
+    public void setRequestStatusesCustomized(boolean requestStatusesCustomized) {
+        this.requestStatusesCustomized = requestStatusesCustomized;
+    }
+
+    public List<String> getAllowedRequestStatusNames() {
+        if (allowedRequestStatusNames == null) {
+            allowedRequestStatusNames = new ArrayList<String>();
+        }
+        return allowedRequestStatusNames;
+    }
+
+    public void setAllowedRequestStatusNames(List<String> allowedRequestStatusNames) {
+        this.allowedRequestStatusNames = allowedRequestStatusNames != null
+                ? allowedRequestStatusNames : new ArrayList<String>();
+    }
+
+    public List<String> getUnblockedStatusNames() {
+        if (unblockedStatusNames == null) {
+            unblockedStatusNames = new ArrayList<String>();
+        }
+        return unblockedStatusNames;
+    }
+
+    public void setUnblockedStatusNames(List<String> unblockedStatusNames) {
+        this.unblockedStatusNames = unblockedStatusNames != null
+                ? unblockedStatusNames : new ArrayList<String>();
+    }
+
     public List<String> getBlockedTransitionNames() {
         return blockedTransitionNames;
     }
@@ -63,11 +115,6 @@ public class ProjectConfig implements Serializable {
         this.blockedTransitionNames = blockedTransitionNames != null ? blockedTransitionNames : new ArrayList<String>();
     }
 
-    /**
-     * Liste des transitions sur lesquelles l'utilisateur n'est PAS autorisé
-     * à créer une demande d'informations supplémentaires.
-     * Vide par défaut (= demande autorisée sur toutes les transitions).
-     */
     public List<String> getDisallowedRequestTransitionNames() {
         if (disallowedRequestTransitionNames == null) {
             disallowedRequestTransitionNames = new ArrayList<String>();
@@ -89,10 +136,6 @@ public class ProjectConfig implements Serializable {
                 || enabledIssueTypeIds.contains(issueTypeId);
     }
 
-    /**
-     * Vérifie si une transition est dans la liste des transitions à bloquer.
-     * Si la liste est vide, toutes les transitions sont bloquées (comportement v1).
-     */
     public boolean isTransitionBlocked(String transitionName) {
         return blockedTransitionNames == null || blockedTransitionNames.isEmpty()
                 || blockedTransitionNames.contains(transitionName);

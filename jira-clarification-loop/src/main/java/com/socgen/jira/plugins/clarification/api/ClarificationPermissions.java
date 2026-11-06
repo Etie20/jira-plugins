@@ -11,7 +11,7 @@ import java.util.List;
  * - Seul le responsable actuel du ticket (assigné) peut demander une précision.
  * - Seul le destinataire d'une demande en cours peut y répondre.
  * - Seul l'auteur d'une demande en cours peut l'annuler.
- * - Aucune nouvelle demande n'est possible tant qu'une demande est en attente ou si le ticket est clôturé.
+ * - Aucune nouvelle demande n'est possible tant qu'une demande est en attente ou si l'état courant ne l'autorise pas.
  */
 public class ClarificationPermissions {
 
@@ -26,7 +26,10 @@ public class ClarificationPermissions {
     private String assigneeName;
     private String assigneeDisplayName;
 
-    /** Noms des transitions à bloquer (configurées par l'admin projet). Liste vide = toutes bloquées (comportement v1). */
+    /** Indique si l'état courant du ticket est figé (transitions bloquées) lorsqu'une demande est en attente. */
+    private boolean transitionsLocked = true;
+
+    /** Noms des transitions à bloquer (rétrocompatibilité). */
     private List<String> blockedTransitionNames;
 
     public boolean isCanRequest() {
@@ -99,6 +102,14 @@ public class ClarificationPermissions {
 
     public void setAssigneeDisplayName(String assigneeDisplayName) {
         this.assigneeDisplayName = assigneeDisplayName;
+    }
+
+    public boolean isTransitionsLocked() {
+        return transitionsLocked;
+    }
+
+    public void setTransitionsLocked(boolean transitionsLocked) {
+        this.transitionsLocked = transitionsLocked;
     }
 
     public List<String> getBlockedTransitionNames() {
