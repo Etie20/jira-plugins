@@ -50,6 +50,7 @@ public class ProjectConfigService {
                 ProjectConfig config = gson.fromJson((String) raw, ProjectConfig.class);
                 if (config != null) {
                     config.setPauseSla(config.isPauseSla());
+                    config.setDisallowedRequestTransitionNames(config.getDisallowedRequestTransitionNames());
                     return config;
                 }
             }

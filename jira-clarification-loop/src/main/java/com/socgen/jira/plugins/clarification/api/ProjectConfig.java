@@ -16,12 +16,14 @@ public class ProjectConfig implements Serializable {
     private Boolean pauseSla;
     private List<String> enabledIssueTypeIds;
     private List<String> blockedTransitionNames;
+    private List<String> disallowedRequestTransitionNames;
 
     public ProjectConfig() {
         this.enabled = false;
         this.pauseSla = Boolean.TRUE;
         this.enabledIssueTypeIds = new ArrayList<String>();
         this.blockedTransitionNames = new ArrayList<String>();
+        this.disallowedRequestTransitionNames = new ArrayList<String>();
     }
 
     public boolean isEnabled() {
@@ -59,6 +61,23 @@ public class ProjectConfig implements Serializable {
 
     public void setBlockedTransitionNames(List<String> blockedTransitionNames) {
         this.blockedTransitionNames = blockedTransitionNames != null ? blockedTransitionNames : new ArrayList<String>();
+    }
+
+    /**
+     * Liste des transitions sur lesquelles l'utilisateur n'est PAS autorisé
+     * à créer une demande d'informations supplémentaires.
+     * Vide par défaut (= demande autorisée sur toutes les transitions).
+     */
+    public List<String> getDisallowedRequestTransitionNames() {
+        if (disallowedRequestTransitionNames == null) {
+            disallowedRequestTransitionNames = new ArrayList<String>();
+        }
+        return disallowedRequestTransitionNames;
+    }
+
+    public void setDisallowedRequestTransitionNames(List<String> disallowedRequestTransitionNames) {
+        this.disallowedRequestTransitionNames = disallowedRequestTransitionNames != null
+                ? disallowedRequestTransitionNames : new ArrayList<String>();
     }
 
     /**

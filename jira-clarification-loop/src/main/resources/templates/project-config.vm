@@ -10,7 +10,7 @@
 <body>
     <div id="clr-config-panel" data-project-key="$projectKey">
         <h2>Demande d'informations supplémentaires</h2>
-        <p class="clr-config-desc">Configurez la demande d'infos sup pour ce projet : activation, pause des SLA (Time to SLA), types de tickets concernés et transitions bloquées pendant l'attente d'une réponse.</p>
+        <p class="clr-config-desc">Configurez la demande d'infos sup pour ce projet : activation, pause des SLA (Time to SLA), types de tickets concernés, transitions où la demande est autorisée et transitions bloquées pendant l'attente d'une réponse.</p>
 
         <div id="clr-config-loading" class="aui-message aui-message-info">
             <p>Chargement de la configuration...</p>
@@ -67,12 +67,34 @@
                 <div id="clr-issue-types-list" class="clr-grid-box"></div>
             </div>
 
-            <!-- Transitions bloquées -->
+            <!-- Transitions autorisant ou interdisant de faire une demande d'infos sup -->
             <div class="clr-config-section">
                 <div class="clr-config-section-header">
                     <div>
-                        <h3>Transitions du workflow bloquées</h3>
-                        <span class="clr-section-sub">Transitions verrouillées tant qu'une demande d'infos sup attend une réponse (tout cocher = toutes les transitions).</span>
+                        <h3>Transitions autorisant la demande d'infos sup</h3>
+                        <span class="clr-section-sub">Décochez les transitions sur lesquelles l'utilisateur ne doit pas pouvoir créer de demande d'infos sup (tout cocher = demande autorisée partout).</span>
+                    </div>
+                    <span id="clr-req-tr-counter" class="clr-counter-badge"></span>
+                </div>
+                <div class="clr-selector-toolbar">
+                    <input type="text" id="clr-req-tr-search" class="text clr-filter-input" placeholder="Rechercher une transition..." autocomplete="off" />
+                    <select id="clr-req-tr-wf-filter" class="select clr-wf-select" style="display:none;">
+                        <option value="">Tous les workflows</option>
+                    </select>
+                    <div class="clr-toolbar-actions">
+                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-req-tr-cb">Tout autoriser</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-req-tr-cb">Tout interdire</button>
+                    </div>
+                </div>
+                <div id="clr-req-transitions-list" class="clr-grid-box clr-grid-box-transitions"></div>
+            </div>
+
+            <!-- Transitions bloquées pendant une demande en attente -->
+            <div class="clr-config-section">
+                <div class="clr-config-section-header">
+                    <div>
+                        <h3>Transitions du workflow bloquées pendant l'attente</h3>
+                        <span class="clr-section-sub">Transitions verrouillées tant qu'une demande d'infos sup attend une réponse (tout cocher = toutes les transitions bloquées).</span>
                     </div>
                     <span id="clr-tr-counter" class="clr-counter-badge"></span>
                 </div>
@@ -82,8 +104,8 @@
                         <option value="">Tous les workflows</option>
                     </select>
                     <div class="clr-toolbar-actions">
-                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-tr-cb">Tout cocher</button>
-                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-tr-cb">Tout décocher</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-all" data-target="clr-tr-cb">Tout bloquer</button>
+                        <button type="button" class="aui-button aui-button-compact clr-select-none" data-target="clr-tr-cb">Tout débloquer</button>
                     </div>
                 </div>
                 <div id="clr-transitions-list" class="clr-grid-box clr-grid-box-transitions"></div>
@@ -213,7 +235,7 @@
         }
         #clr-config-panel .clr-grid-box {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 8px;
             padding: 12px 16px;
             max-height: 220px;
@@ -221,7 +243,7 @@
             background: #ffffff;
         }
         #clr-config-panel .clr-grid-box-transitions {
-            max-height: 320px;
+            max-height: 300px;
         }
         #clr-config-panel .clr-check-card {
             display: flex;
@@ -244,6 +266,10 @@
             background: #f4f5f7;
             border-color: #b3bac5;
         }
+        #clr-config-panel .clr-check-card.clr-card-disallowed {
+            background: #fff8f6;
+            border-color: #ffbdad;
+        }
         #clr-config-panel .clr-check-card input[type="checkbox"] {
             margin: 0;
             flex-shrink: 0;
@@ -263,10 +289,27 @@
             background: #ebecf0;
             padding: 1px 6px;
             border-radius: 3px;
-            max-width: 95px;
+            max-width: 85px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        #clr-config-panel .clr-state-pill {
+            flex-shrink: 0;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 1px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+        #clr-config-panel .clr-pill-allowed {
+            color: #006644;
+            background: #e3fcef;
+        }
+        #clr-config-panel .clr-pill-disallowed {
+            color: #bf2600;
+            background: #ffebe6;
         }
         #clr-config-panel .clr-empty-msg {
             grid-column: 1 / -1;
@@ -295,54 +338,101 @@
             var projectKey = $("#clr-config-panel").data("project-key");
             var restUrl = AJS.contextPath() + "/rest/clarification/1.0/issue/config/" + encodeURIComponent(projectKey);
 
-            function updateCounter(cssClass, $counter) {
+            function updateCounter(cssClass, $counter, mode) {
                 var $all = $("." + cssClass);
                 var total = $all.length;
                 var checked = $all.filter(":checked").length;
                 if (total === 0) {
                     $counter.text("0 élément");
-                } else if (checked === total) {
-                    $counter.text("Tous sélectionnés (" + total + ")");
+                    return;
+                }
+                if (mode === "allow-request") {
+                    var forbidden = total - checked;
+                    if (forbidden === 0) {
+                        $counter.text("Toutes autorisées (" + total + ")");
+                    } else {
+                        $counter.text(checked + " autorisée(s) · " + forbidden + " interdite(s)");
+                    }
+                } else if (mode === "block-transition") {
+                    if (checked === total) {
+                        $counter.text("Toutes bloquées (" + total + ")");
+                    } else {
+                        $counter.text(checked + " / " + total + " bloquée(s)");
+                    }
                 } else {
-                    $counter.text(checked + " / " + total + " sélectionné(s)");
+                    if (checked === total) {
+                        $counter.text("Tous sélectionnés (" + total + ")");
+                    } else {
+                        $counter.text(checked + " / " + total + " sélectionné(s)");
+                    }
                 }
             }
 
-            function renderGrid(box, items, cssClass, valueKey, selected, $counter) {
+            function syncCardAppearance($cb, mode) {
+                var $card = $cb.closest(".clr-check-card");
+                var checked = $cb.prop("checked");
+                if (mode === "allow-request") {
+                    $card.toggleClass("clr-card-checked", checked);
+                    $card.toggleClass("clr-card-disallowed", !checked);
+                    var $pill = $card.find(".clr-state-pill");
+                    if ($pill.length) {
+                        $pill
+                            .toggleClass("clr-pill-allowed", checked)
+                            .toggleClass("clr-pill-disallowed", !checked)
+                            .text(checked ? "Autorisée" : "Interdite");
+                    }
+                } else {
+                    $card.toggleClass("clr-card-checked", checked);
+                }
+            }
+
+            function renderGrid(box, items, cssClass, valueKey, listValues, $counter, mode) {
                 box.empty();
                 if (!items.length) {
                     box.append('<div class="clr-empty-msg">Aucun élément trouvé.</div>');
-                    updateCounter(cssClass, $counter);
+                    updateCounter(cssClass, $counter, mode);
                     return;
                 }
                 items.forEach(function (item, i) {
                     var value = String(item[valueKey]);
                     var id = cssClass + "-" + i;
-                    var isChecked = (selected.length === 0 || selected.indexOf(value) >= 0);
+                    var isChecked;
+                    if (mode === "allow-request") {
+                        // listValues contient les transitions INTERDITES (décochées)
+                        isChecked = (listValues.indexOf(value) < 0);
+                    } else {
+                        // listValues contient les éléments sélectionnés ([] = tout coché)
+                        isChecked = (listValues.length === 0 || listValues.indexOf(value) >= 0);
+                    }
                     var checkedAttr = isChecked ? ' checked="checked"' : "";
-                    var cardClass = "clr-check-card" + (isChecked ? " clr-card-checked" : "");
+                    var cardClass = "clr-check-card" + (isChecked ? " clr-card-checked" : (mode === "allow-request" ? " clr-card-disallowed" : ""));
                     var wfRaw = item.workflows || "";
                     var wfPill = "";
                     var tooltip = item.name;
                     if (wfRaw) {
                         var wfList = wfRaw.split(", ");
-                        var pillText = wfList.length > 1 ? (wfList.length + " workflows") : wfList[0];
+                        var pillText = wfList.length > 1 ? (wfList.length + " wf") : wfList[0];
                         tooltip = item.name + " — Workflow(s) : " + wfRaw;
                         wfPill = '<span class="clr-wf-pill" title="' + escapeHtml("Workflow(s) : " + wfRaw) + '">' + escapeHtml(pillText) + '</span>';
+                    }
+                    var statePill = "";
+                    if (mode === "allow-request") {
+                        statePill = '<span class="clr-state-pill ' + (isChecked ? 'clr-pill-allowed' : 'clr-pill-disallowed') + '">' + (isChecked ? 'Autorisée' : 'Interdite') + '</span>';
                     }
                     box.append(
                         '<label class="' + cardClass + '" for="' + id + '" data-name="' + escapeHtml(String(item.name).toLowerCase()) + '" data-wfs="' + escapeHtml(wfRaw.toLowerCase()) + '" title="' + escapeHtml(tooltip) + '">' +
                         '<input type="checkbox" class="checkbox ' + cssClass + '" id="' + id + '" value="' + escapeHtml(value) + '"' + checkedAttr + ' />' +
                         '<span class="clr-card-title">' + escapeHtml(item.name) + '</span>' +
                         wfPill +
+                        statePill +
                         '</label>'
                     );
                 });
-                updateCounter(cssClass, $counter);
+                updateCounter(cssClass, $counter, mode);
             }
 
-            function populateWorkflowFilter(transitions) {
-                var $wfSelect = $("#clr-tr-wf-filter");
+            function populateWorkflowFilters(transitions) {
+                var $wfSelects = $("#clr-tr-wf-filter, #clr-req-tr-wf-filter");
                 var wfSet = {};
                 var wfOrder = [];
                 (transitions || []).forEach(function (t) {
@@ -357,13 +447,15 @@
                     }
                 });
                 if (wfOrder.length > 1) {
-                    $wfSelect.empty().append('<option value="">Tous les workflows (' + wfOrder.length + ')</option>');
-                    wfOrder.forEach(function (w) {
-                        $wfSelect.append('<option value="' + escapeHtml(w.toLowerCase()) + '">' + escapeHtml(w) + '</option>');
+                    $wfSelects.each(function () {
+                        var $sel = $(this).empty().append('<option value="">Tous les workflows (' + wfOrder.length + ')</option>');
+                        wfOrder.forEach(function (w) {
+                            $sel.append('<option value="' + escapeHtml(w.toLowerCase()) + '">' + escapeHtml(w) + '</option>');
+                        });
+                        $sel.show();
                     });
-                    $wfSelect.show();
                 } else {
-                    $wfSelect.hide();
+                    $wfSelects.hide();
                 }
             }
 
@@ -381,12 +473,21 @@
             }
 
             // Retourne la liste cochée, ou [] si tout est coché (= tous)
-            function collect(cssClass) {
+            function collectCheckedOrEmptyIfAll(cssClass) {
                 var values = [], all = true;
                 $("." + cssClass).each(function () {
                     if (this.checked) { values.push(this.value); } else { all = false; }
                 });
                 return all ? [] : values;
+            }
+
+            // Retourne la liste des éléments DÉCOCHÉS (transitions interdites)
+            function collectUnchecked(cssClass) {
+                var unchecked = [];
+                $("." + cssClass).each(function () {
+                    if (!this.checked) { unchecked.push(this.value); }
+                });
+                return unchecked;
             }
 
             $.ajax({ url: restUrl, type: "GET", dataType: "json", cache: false })
@@ -407,9 +508,10 @@
                     var issueTypes = data.issueTypes || [];
                     var transitions = data.transitions || [];
 
-                    populateWorkflowFilter(transitions);
-                    renderGrid($("#clr-issue-types-list"), issueTypes, "clr-it-cb", "id", config.enabledIssueTypeIds || [], $("#clr-it-counter"));
-                    renderGrid($("#clr-transitions-list"), transitions, "clr-tr-cb", "name", config.blockedTransitionNames || [], $("#clr-tr-counter"));
+                    populateWorkflowFilters(transitions);
+                    renderGrid($("#clr-issue-types-list"), issueTypes, "clr-it-cb", "id", config.enabledIssueTypeIds || [], $("#clr-it-counter"), "issue-types");
+                    renderGrid($("#clr-req-transitions-list"), transitions, "clr-req-tr-cb", "name", config.disallowedRequestTransitionNames || [], $("#clr-req-tr-counter"), "allow-request");
+                    renderGrid($("#clr-transitions-list"), transitions, "clr-tr-cb", "name", config.blockedTransitionNames || [], $("#clr-tr-counter"), "block-transition");
 
                     $("#clr-config-loading").hide();
                     $("#clr-config-form").show();
@@ -424,15 +526,25 @@
 
             $(document)
                 .on("change", ".clr-it-cb", function () {
-                    $(this).closest(".clr-check-card").toggleClass("clr-card-checked", this.checked);
-                    updateCounter("clr-it-cb", $("#clr-it-counter"));
+                    syncCardAppearance($(this), "issue-types");
+                    updateCounter("clr-it-cb", $("#clr-it-counter"), "issue-types");
+                })
+                .on("change", ".clr-req-tr-cb", function () {
+                    syncCardAppearance($(this), "allow-request");
+                    updateCounter("clr-req-tr-cb", $("#clr-req-tr-counter"), "allow-request");
                 })
                 .on("change", ".clr-tr-cb", function () {
-                    $(this).closest(".clr-check-card").toggleClass("clr-card-checked", this.checked);
-                    updateCounter("clr-tr-cb", $("#clr-tr-counter"));
+                    syncCardAppearance($(this), "block-transition");
+                    updateCounter("clr-tr-cb", $("#clr-tr-counter"), "block-transition");
                 })
                 .on("input", "#clr-it-search", function () {
                     filterCards($("#clr-issue-types-list"), $(this).val(), "");
+                })
+                .on("input", "#clr-req-tr-search", function () {
+                    filterCards($("#clr-req-transitions-list"), $(this).val(), $("#clr-req-tr-wf-filter").val());
+                })
+                .on("change", "#clr-req-tr-wf-filter", function () {
+                    filterCards($("#clr-req-transitions-list"), $("#clr-req-tr-search").val(), $(this).val());
                 })
                 .on("input", "#clr-tr-search", function () {
                     filterCards($("#clr-transitions-list"), $(this).val(), $("#clr-tr-wf-filter").val());
@@ -443,14 +555,16 @@
                 .on("click", ".clr-select-all, .clr-select-none", function () {
                     var check = $(this).hasClass("clr-select-all");
                     var targetClass = $(this).data("target");
+                    var mode = targetClass === "clr-req-tr-cb" ? "allow-request" : (targetClass === "clr-tr-cb" ? "block-transition" : "issue-types");
+                    var $counter = targetClass === "clr-req-tr-cb" ? $("#clr-req-tr-counter") : (targetClass === "clr-tr-cb" ? $("#clr-tr-counter") : $("#clr-it-counter"));
                     $("." + targetClass).each(function () {
                         var $card = $(this).closest(".clr-check-card");
                         if ($card.is(":visible")) {
                             this.checked = check;
-                            $card.toggleClass("clr-card-checked", check);
+                            syncCardAppearance($(this), mode);
                         }
                     });
-                    updateCounter(targetClass, targetClass === "clr-it-cb" ? $("#clr-it-counter") : $("#clr-tr-counter"));
+                    updateCounter(targetClass, $counter, mode);
                 });
 
             $("#clr-config-form").on("submit", function (e) {
@@ -461,8 +575,9 @@
                 var payload = {
                     enabled: $("#clr-enabled").prop("checked"),
                     pauseSla: $("#clr-pause-sla").prop("checked"),
-                    enabledIssueTypeIds: collect("clr-it-cb"),
-                    blockedTransitionNames: collect("clr-tr-cb")
+                    enabledIssueTypeIds: collectCheckedOrEmptyIfAll("clr-it-cb"),
+                    disallowedRequestTransitionNames: collectUnchecked("clr-req-tr-cb"),
+                    blockedTransitionNames: collectCheckedOrEmptyIfAll("clr-tr-cb")
                 };
 
                 $.ajax({

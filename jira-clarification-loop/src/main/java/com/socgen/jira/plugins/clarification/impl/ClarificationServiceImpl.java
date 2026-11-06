@@ -23,11 +23,18 @@ import com.atlassian.jira.permission.ProjectPermissions;
 import com.atlassian.jira.security.PermissionManager;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.user.util.UserManager;
+import com.atlassian.jira.workflow.JiraWorkflow;
+import com.atlassian.jira.workflow.WorkflowManager;
+import com.atlassian.jira.workflow.WorkflowUtil;
 import com.atlassian.plugin.spring.scanner.annotation.export.ExportAsService;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import com.google.gson.Gson;
+import com.opensymphony.workflow.loader.ActionDescriptor;
+import com.opensymphony.workflow.loader.ResultDescriptor;
+import com.opensymphony.workflow.loader.StepDescriptor;
+import com.opensymphony.workflow.loader.WorkflowDescriptor;
 import com.socgen.jira.plugins.clarification.api.ClarificationEntry;
 import com.socgen.jira.plugins.clarification.api.ClarificationException;
 import com.socgen.jira.plugins.clarification.api.ClarificationHistory;
@@ -40,11 +47,15 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -236,8 +247,11 @@ public class ClarificationServiceImpl implements ClarificationService {
             return perms;
         }
 
+        String disallowedTransition = findDisallowedRequestTransition(issue);
         if (isClosed(issue)) {
             perms.setInfo("Ticket clôturé : aucune demande possible.");
+        } else if (disallowedTransition != null) {
+            perms.setInfo("Aucune demande d'infos sup possible sur cette transition (" + disallowedTransition + ").");
         } else if (assignee == null) {
             perms.setInfo("Le ticket doit être assigné pour faire une demande d'infos sup.");
         } else if (!sameUser(user, assignee)) {
@@ -506,6 +520,210 @@ public class ClarificationServiceImpl implements ClarificationService {
     // Règles métier
     // ------------------------------------------------------------------
 
+    /**
+     * Vérifie si la transition / étape courante du ticket fait partie des transitions
+     * sur lesquelles la création d'une demande d'infos sup est interdite dans les paramètres du projet.
+     * Retourne le nom de la transition interdite le cas échéant, ou {@code null} si la demande est autorisée.
+     */
+    private String findDisallowedRequestTransition(MutableIssue issue) {
+        try {
+            String projectKey = issue.getProjectObject() != null ? issue.getProjectObject().getKey() : null;
+            if (projectKey == null) {
+                return null;
+            }
+            ProjectConfig config = projectConfigService.getConfig(projectKey);
+            List<String> disallowedList = config.getDisallowedRequestTransitionNames();
+            if (disallowedList == null || disallowedList.isEmpty()) {
+                return null;
+            }
+
+            Map<String, String> originalByLower = new LinkedHashMap<String, String>();
+            for (String name : disallowedList) {
+                if (name != null && !name.trim().isEmpty()) {
+                    originalByLower.put(name.trim().toLowerCase(), name.trim());
+                }
+            }
+            if (originalByLower.isEmpty()) {
+                return null;
+            }
+
+            Status status = issue.getStatus();
+            if (status != null) {
+                String stName = status.getName() != null ? status.getName().trim().toLowerCase() : "";
+                String stTrans = status.getNameTranslation() != null ? status.getNameTranslation().trim().toLowerCase() : "";
+                if (originalByLower.containsKey(stTrans)) {
+                    return originalByLower.get(stTrans);
+                }
+                if (originalByLower.containsKey(stName)) {
+                    return originalByLower.get(stName);
+                }
+            }
+
+            WorkflowManager wfm = ComponentAccessor.getWorkflowManager();
+            JiraWorkflow wf = wfm != null ? wfm.getWorkflow(issue) : null;
+            if (wf == null || status == null) {
+                return null;
+            }
+
+            StepDescriptor currentStep = wf.getLinkedStep(status);
+            if (currentStep == null) {
+                return null;
+            }
+
+            if (currentStep.getName() != null) {
+                String stepLower = currentStep.getName().trim().toLowerCase();
+                if (originalByLower.containsKey(stepLower)) {
+                    return originalByLower.get(stepLower);
+                }
+            }
+
+            WorkflowDescriptor wd = wf.getDescriptor();
+            if (wd == null) {
+                return null;
+            }
+
+            // 1. Vérifier les transitions globales (ex: workflows simplifiés) qui mènent à l'étape courante
+            if (wd.getGlobalActions() != null) {
+                for (Object o : wd.getGlobalActions()) {
+                    if (o instanceof ActionDescriptor) {
+                        ActionDescriptor action = (ActionDescriptor) o;
+                        ResultDescriptor res = action.getUnconditionalResult();
+                        if (res != null && res.getStep() == currentStep.getId()) {
+                            String actName = getActionDisplayName(action);
+                            if (actName != null && originalByLower.containsKey(actName.toLowerCase())) {
+                                return originalByLower.get(actName.toLowerCase());
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Compter sur combien d'étapes chaque transition d'étape est présente (pour distinguer
+            //    une transition propre à l'étape courante d'une transition transversale d'annulation/clôture)
+            Map<String, Integer> stepCountByActionLower = new HashMap<String, Integer>();
+            if (wd.getSteps() != null) {
+                for (Object sObj : wd.getSteps()) {
+                    if (sObj instanceof StepDescriptor) {
+                        StepDescriptor s = (StepDescriptor) sObj;
+                        if (s.getActions() != null) {
+                            Set<String> seenInStep = new LinkedHashSet<String>();
+                            for (Object aObj : s.getActions()) {
+                                if (aObj instanceof ActionDescriptor) {
+                                    String n = getActionDisplayName((ActionDescriptor) aObj);
+                                    if (n != null) {
+                                        seenInStep.add(n.toLowerCase());
+                                    }
+                                }
+                            }
+                            for (String k : seenInStep) {
+                                Integer prev = stepCountByActionLower.get(k);
+                                stepCountByActionLower.put(k, prev == null ? 1 : prev + 1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Examiner les transitions sortantes de l'étape courante (currentStep.getActions())
+            List<String> stepActionsLower = new ArrayList<String>();
+            if (currentStep.getActions() != null) {
+                for (Object aObj : currentStep.getActions()) {
+                    if (aObj instanceof ActionDescriptor) {
+                        String n = getActionDisplayName((ActionDescriptor) aObj);
+                        if (n != null) {
+                            stepActionsLower.add(n.toLowerCase());
+                        }
+                    }
+                }
+            }
+
+            if (!stepActionsLower.isEmpty()) {
+                boolean hasAllowedSpecificAction = false;
+                String firstDisallowedSpecific = null;
+                String firstDisallowedAny = null;
+                boolean allDisallowed = true;
+
+                for (String actLower : stepActionsLower) {
+                    boolean isDisallowed = originalByLower.containsKey(actLower);
+                    int count = stepCountByActionLower.containsKey(actLower) ? stepCountByActionLower.get(actLower) : 1;
+                    boolean isSpecific = (count <= 1);
+
+                    if (isDisallowed) {
+                        if (firstDisallowedAny == null) {
+                            firstDisallowedAny = originalByLower.get(actLower);
+                        }
+                        if (isSpecific && firstDisallowedSpecific == null) {
+                            firstDisallowedSpecific = originalByLower.get(actLower);
+                        }
+                    } else {
+                        allDisallowed = false;
+                        if (isSpecific) {
+                            hasAllowedSpecificAction = true;
+                        }
+                    }
+                }
+
+                // Si une transition propre à l'étape courante est interdite, ou si toutes les transitions
+                // sortantes de l'étape courante sont interdites, la demande est interdite
+                if (firstDisallowedSpecific != null) {
+                    return firstDisallowedSpecific;
+                }
+                if (allDisallowed && firstDisallowedAny != null) {
+                    return firstDisallowedAny;
+                }
+                if (!hasAllowedSpecificAction && firstDisallowedAny != null) {
+                    return firstDisallowedAny;
+                }
+            } else {
+                // 4. Si l'étape courante n'a aucune transition sortante spécifique, vérifier les transitions entrantes menant à currentStep
+                Collection<ActionDescriptor> allActions = wf.getAllActions();
+                if (allActions != null) {
+                    String firstIncomingDisallowed = null;
+                    boolean hasAllowedIncoming = false;
+                    for (ActionDescriptor action : allActions) {
+                        if (action == null || action.getId() == 1) {
+                            continue;
+                        }
+                        ResultDescriptor res = action.getUnconditionalResult();
+                        if (res != null && res.getStep() == currentStep.getId()) {
+                            String actName = getActionDisplayName(action);
+                            if (actName != null) {
+                                String lower = actName.toLowerCase();
+                                if (originalByLower.containsKey(lower)) {
+                                    if (firstIncomingDisallowed == null) {
+                                        firstIncomingDisallowed = originalByLower.get(lower);
+                                    }
+                                } else {
+                                    hasAllowedIncoming = true;
+                                }
+                            }
+                        }
+                    }
+                    if (firstIncomingDisallowed != null && !hasAllowedIncoming) {
+                        return firstIncomingDisallowed;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private static String getActionDisplayName(ActionDescriptor action) {
+        if (action == null) {
+            return null;
+        }
+        String displayName = null;
+        try {
+            displayName = WorkflowUtil.getWorkflowTransitionDisplayName(action);
+        } catch (Exception ignored) {
+        }
+        if (displayName == null || displayName.trim().isEmpty()) {
+            displayName = action.getName();
+        }
+        return (displayName == null || displayName.trim().isEmpty()) ? null : displayName.trim();
+    }
+
     private void checkRequestAllowed(MutableIssue issue, ApplicationUser requester) {
         if (requester == null) {
             throw ClarificationException.forbidden("Vous devez être connecté.");
@@ -516,6 +734,11 @@ public class ClarificationServiceImpl implements ClarificationService {
         }
         if (isClosed(issue)) {
             throw ClarificationException.forbidden("Le ticket est clôturé.");
+        }
+        String disallowedTransition = findDisallowedRequestTransition(issue);
+        if (disallowedTransition != null) {
+            throw ClarificationException.forbidden(
+                    "Aucune demande d'infos sup n'est autorisée sur cette transition (" + disallowedTransition + ").");
         }
         ApplicationUser assignee = issue.getAssignee();
         if (assignee == null || !sameUser(requester, assignee)) {
